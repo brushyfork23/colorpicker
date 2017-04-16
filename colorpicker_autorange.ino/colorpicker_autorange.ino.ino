@@ -235,8 +235,6 @@ void loop(void) {
   g = rgb_sensor.g_comp; g /= sum;
   b = rgb_sensor.b_comp; b /= sum;
   r *= 256; g *= 256; b *= 256;
-  Serial.print((int)r ); Serial.print(" "); Serial.print((int)g);Serial.print(" ");  Serial.println((int)b );
-  Serial.println();
   for(int i=0;i<NUM_LEDS;i++){
       strip.setPixelColor(i, strip.Color(r, g, b)); //change RGB color value here
    }
