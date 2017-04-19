@@ -2,42 +2,111 @@
 
                                             initialize
                                                 v
-                                              passive
-                                                v
-                                          (color found)
-                                         new reading animation
-                                                |
-                                                  ------> (color found)
-
-
-
-                         ------------  (timeout)reset animation  <---------------  (button released) preview 
-                        |      -->                                                                                                 |
-                        v      |                                                                                                  |
-State: initialize -> passive -- (button pressed) reading -> (color found) new color animation -> refresh ->
-                        ^      |                                                  |
-                        |      ->                                                   |
-                         -------------- (double pressed) confirm  <--------------
+                            --------------->  ready <--------------------------
+                           |                    |                              |
+                      (timeout) reset           |             (double click) confirm
+                           ^                    |                              ^
+                           |                    v                              |
+                            ---------------- preview --------------------------
 
 
 
 
-initialize: start up neopixels, rgb sensor, and wifi.
-passive:
-  pulse neopixels (color cycle if none set)
-  when button is pressed, update rbg sensor
-  when rgb sensor detects new color, goto new_reading_animation
-new_reading_animation:
-  update animation: step through animation, filling display with sensed color
-  
+
+initialize: start up neopixels, rgb sensor, and network.
+  set vars: 
+    color = black
+    previewColor = black
+ready:
+  enter:
+    set animation to pulse single
+  update:
+    pulse neopixels (color cycle if none set)
+    button.update
+    if button.fallingEdge {
+      Sensor.enable()
+    }
+    if button.risingEdge {
+      Sensor.disable()
+    }
+    if ( Sensor.color() != this->color && Sensor.color() != black ) {
+      this->previewColor = Sensor.color();
+      goto state preview
+    }
+
+preview:
+  enter:
+    set animation sequence(picker_init_preview, solid) (fill display with this->previewColor, then hold preview color)
+      (animation internally sets animation.transitioning = true)
+    reset timeout timer
+  update:
+    if ( Sensor.color() != this->color && Sensor.color() != black ) {
+      this->previewColor = Sensor.color()
+    }
+    button.update
+    if button.pressed = false && timeout.expired {
+      goto reset
+    }
+    // todo problem here.  on falling edge, set reset timer for 250 millis.  enable or confirm after 250 millis
+    if button.fallingEdge {
+      if button pushed for more than 250 millis {
+        if button.isDoubleClick {
+          goto confirm
+        } else {
+          Sensor.enable()
+          set animation to solid
+        }
+      }
+    }
+    if button.risingEdge {
+      Sensor.disable()
+      set animation to pulse full
+      reset timeout timer
+    }
+
+
+  reset:
+    enter:
+      set animation to reset (clear display and set back to this->color)
+        (animation internally sets animation.transitioning = true)
+    update:
+      clearing display, going back to single pixel
+      if !animation.Transitioning() { // updated when display has been emptied to only a single pixel
+        goto ready
+      }
+
+  confirm
+    enter:
+      this->color = this->previewColor
+      Network.publish(this->color) // initiate network sendWithAck event
+      set animation to picker_confirm
+    update:
+      
+
+
+
+
+
+  loop{
+    Animation.update()
+    Sensor.update()
+    Network.update()
+    state.update()
+  }
 
  
-
-  animation.update()
-  if (sensor.update()) {
-  
-  }
-  animation.setColor(sensor.Color)
+  // set a sequence of transitional animatinos, ending with a stable one.
+ animation.setSequence(anim1, anim2, ...){
+  this->seq = [anim2, ...]
+  this->anim = anim1
+  this->transitioning = this->anim->transitional
+ }
+ anim.update() {
+  if this->anim->transitional
+    if this->transitioning == false
+      if this->seq->hasNextAnim
+        this->setAnim(this->seq->nextAnim)
+ }
 
 
 
