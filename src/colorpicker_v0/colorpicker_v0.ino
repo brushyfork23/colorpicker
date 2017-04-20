@@ -1,5 +1,5 @@
 /*
-
+]
                                             initialize
                                                 v
                             --------------->  ready <--------------------------
@@ -19,24 +19,22 @@ initialize: start up neopixels, rgb sensor, and network.
     previewColor = black
 ready:
   enter:
-    set animation to pulse single
+    Animation.setAnim(picker_pulse_single); // fade in and out a sinlge pixel, rainbow if this->color == black
   update:
-    pulse neopixels (color cycle if none set)
-    button.update
-    if button.fallingEdge {
-      Sensor.enable()
-    }
-    if button.risingEdge {
-      Sensor.disable()
-    }
     if ( Sensor.color() != this->color && Sensor.color() != black ) {
       this->previewColor = Sensor.color();
       goto state preview
     }
+    button.update
+    if button.risingEdge {
+      Sensor.disable()
+    } else if button.fallingEdge {
+      Sensor.enable()
+    }
 
 preview:
   enter:
-    set animation sequence(picker_init_preview, solid) (fill display with this->previewColor, then hold preview color)
+    Animation.setSequence(picker_init_preview, picker_solid) (fill display with this->previewColor, then hold preview color)
       (animation internally sets animation.transitioning = true)
     reset timeout timer
   update:
@@ -45,13 +43,17 @@ preview:
     }
     button.update
     if button.pressed = false && timeout.expired {
-      goto reset
+      Animation.setSequence(picker_reset, picker_pulse_single) // clear display and set back to single pixel of this->color
+      goto state ready
     }
     // todo problem here.  on falling edge, set reset timer for 250 millis.  enable or confirm after 250 millis
     if button.fallingEdge {
       if button pushed for more than 250 millis {
-        if button.isDoubleClick {
-          goto confirm
+        if button.isDoubleClick { // confirm selection
+          this->color = this->previewColor
+          Network.publish(this->color) // initiate network sendWithAck event; Maybe include some retry logic?
+          Animation.setSequence(picker_transmit, picker_pulse_single) // perform cool "broadcasting" animation, then settle in to a single pixel
+          goto state ready
         } else {
           Sensor.enable()
           set animation to solid
@@ -64,35 +66,15 @@ preview:
       reset timeout timer
     }
 
-
-  reset:
-    enter:
-      set animation to reset (clear display and set back to this->color)
-        (animation internally sets animation.transitioning = true)
-    update:
-      clearing display, going back to single pixel
-      if !animation.Transitioning() { // updated when display has been emptied to only a single pixel
-        goto ready
-      }
-
-  confirm
-    enter:
-      this->color = this->previewColor
-      Network.publish(this->color) // initiate network sendWithAck event
-      set animation to picker_confirm
-    update:
-      
-
-
-
-
-
   loop{
     Animation.update()
     Sensor.update()
     Network.update()
-    state.update()
+    picker.update() // execute update() for current state
   }
+
+ 
+
 
  
   // set a sequence of transitional animatinos, ending with a stable one.
