@@ -1,13 +1,12 @@
 /*
-]
-                                            initialize
-                                                v
-                            --------------->  ready <--------------------------
-                           |                    |                              |
-                      (timeout) reset           |             (double click) confirm
-                           ^                    |                              ^
-                           |                    v                              |
-                            ---------------- preview --------------------------
+      State machine
+
+      --------------->  ready <--------------------------
+     |                    |                              |
+(timeout) reset           |             (double click) confirm
+     ^                    |                              ^
+     |                    v                              |
+      ---------------- preview --------------------------
 
 
 
@@ -62,7 +61,7 @@ preview:
     }
     if button.risingEdge {
       Sensor.disable()
-      set animation to pulse full
+      Animation.setAnim(pulse) // fade brightness of display in and out
       reset timeout timer
     }
 
@@ -76,7 +75,7 @@ preview:
  
 
 
- 
+
   // set a sequence of transitional animatinos, ending with a stable one.
  animation.setSequence(anim1, anim2, ...){
   this->seq = [anim2, ...]
@@ -136,88 +135,63 @@ void RGBSensor::update() {
   }
 }
 
-
-
-
-
-
-
-#include <Metro.h>
-#include <Bounce.h>
-
-// Metronome wrapper class
-class Beats {
+class Color {
   public:
-    // set the interval in ms
-    void tempo( unsigned long interval );
-    // set start of interval
-    void start();
+    byte red, green, blue;
 
-    // return TRUE at beat start
-    boolean isBeat();
-    // return the number of ms until the next beat
-    unsigned long nextBeat();
-    // return the total cycle time in ms
-    unsigned long getTempo();
-
-  private:
-    unsigned long interval, lastBeat;
-
-    Metro beatCounter;
-};
-void Beats::tempo( unsigned long interval ) {
-  this->interval = interval;
-  this->beatCounter.interval( interval );
-}
-void Beats::start() {
-  this->beatCounter.reset();
-  this->lastBeat = millis();
-}
-boolean Beats::isBeat() {
-  if( beatCounter.check() ) {
-    this->lastBeat = millis();
-    return( true );
-  } else {
-    return( false );
+  Color::Color(byte r, g, b){
+    this->red = r;
+    this->green = g;
+    this->blue = b;
   }
-}
-unsigned long Beats::nextBeat() {
-  return( this->interval - ( millis() - this->lastBeat ) );
-}
-unsigned long Beats::getTempo() {
-  return( this->interval );
-}
-Beats Beat;
-
-
-class RGBSensor {
-  public:
-
-  private:
-
 };
+
+//http://www.arduino.cc/playground/uploads/Code/FSM_1-6.zip
+#include <FiniteStateMachine.h>
+
+// define state machine
+State ready = State(readyEnter, readyUpdate, NULL);
+State preview = State(previewEnter, previewUpdate, NULL);
+FSM picker = FSM(initialize)
+
+
+// TCS45725 RGB Sensor
+#include "Adafruit_TCS34725.h"
+#define LED_PIN 13
+
+// NeoPixel FeatherWing
+#include "Picker_Display.h"
+#define DISPLAY_PIN 15
+#define BRIGHTNESS 84
+PickerDisplay Display
+
+uint32_t 
+  color,
+  previewColor;
 
 void setup() {
   Serial.begin(115200);
 
-
-
-  // Initialize RGB Sensor
-  RGBSensor.begin( 461UL )
-
-  // Initialize NeoPixels
-
-  // Initialize Clock
-
-
+  //start up neopixels, rgb sensor, and network.
+  Display.begin(DISPLAY_PIN);
+  Display.setBrightness(BRIGHTNESS);
 }
 
 void loop() {
-  if (// when button is pressed
-    // if this is a doulbe press
-      // mark new 
-      // change state to color selected
-    Sensor.update()
+  Display.update();
+  Sensor.update();
+  Network.update();
+  picker.update();
+}
 
-    if 
+
+/*
+  ALL the functions below are helper functions for the states of the program
+*/
+
+///[ready state:update]
+// fade in and out a sinlge pixel, rainbow if this->color == black
+void readyEnter() {
+  Animation.setAnim(picker_pulse_single);
+  Display.PickerPulseSingle(this->color);
 }
