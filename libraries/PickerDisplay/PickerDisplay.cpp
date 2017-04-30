@@ -38,6 +38,9 @@ void PickerDisplay::startSeed(uint16_t seed) {
 void PickerDisplay::setCallback(void (*callback)()) {
 	this->OnComplete = callback;
 }
+void PickerDisplay::setColor(uint32_t color) {
+  this->color = color;
+}
 
 // Update the pattern
     void Update()
@@ -56,8 +59,8 @@ void PickerDisplay::setCallback(void (*callback)()) {
                 case SOLID:
                 	SolidUpdate();
                 	break;
-                case PICKER_INIT_PREVIEW:
-                	PickerInitPreviewUpdate();
+                case PICKER_PREVIEW_Init:
+                	PickerPreviewInitUpdate();
                 	break;
                 case PICKER_RESET:
                 	PickerResetUpdate();
@@ -102,6 +105,7 @@ void PickerDisplay::setCallback(void (*callback)()) {
    	void Solid(uint32_t color)
     {
     	this->ActivePattern = SOLID;
+      this->color = CRGB(color)
     }
 
     void SolidUpdate() {
@@ -109,16 +113,16 @@ void PickerDisplay::setCallback(void (*callback)()) {
     	show();
     }
 
-    void PickerInitPreview(uint32_t color)
+    void PickerPreviewInit(uint32_t color)
     {
-    	this->ActivePattern = PICKER_INIT_PREVIEW;
+    	this->ActivePattern = PICKER_PREVIEW_INIT;
     	this->TotalSteps = 8;
     	this->Index = 0;
     	this->previewColor = color;
     }
 
     // over the course of 8 steps, fill in the display with the new color.
-    void PickerInitPreviewUpdate()
+    void PickerPreviewInitUpdate()
     {
     	fill_solid()
     }

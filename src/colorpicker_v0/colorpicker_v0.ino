@@ -1,94 +1,21 @@
 /*
-      State machine
 
-      --------------->  ready <--------------------------
-     |                    |                              |
-(timeout) reset           |             (double click) confirm
-     ^                    |                              ^
-     |                    v                              |
-      ---------------- preview --------------------------
-
-
-
-
-
-initialize: start up neopixels, rgb sensor, and network.
-  set vars: 
-    color = black
-    previewColor = black
-ready:
-  enter:
-    Animation.setAnim(picker_pulse_single); // fade in and out a sinlge pixel, rainbow if this->color == black
-  update:
-    if ( Sensor.color() != this->color && Sensor.color() != black ) {
-      this->previewColor = Sensor.color();
-      goto state preview
-    }
-    button.update
-    if button.risingEdge {
-      Sensor.disable()
-    } else if button.fallingEdge {
-      Sensor.enable()
-    }
-
-preview:
-  enter:
-    Animation.setSequence(picker_init_preview, picker_solid) (fill display with this->previewColor, then hold preview color)
-      (animation internally sets animation.transitioning = true)
-    reset timeout timer
-  update:
-    if ( Sensor.color() != this->color && Sensor.color() != black ) {
-      this->previewColor = Sensor.color()
-    }
-    button.update
-    if button.pressed = false && timeout.expired {
-      Animation.setSequence(picker_reset, picker_pulse_single) // clear display and set back to single pixel of this->color
-      goto state ready
-    }
-    // todo problem here.  on falling edge, set reset timer for 250 millis.  enable or confirm after 250 millis
-    if button.fallingEdge {
-      if button pushed for more than 250 millis {
-        if button.isDoubleClick { // confirm selection
-          this->color = this->previewColor
-          Network.publish(this->color) // initiate network sendWithAck event; Maybe include some retry logic?
-          Animation.setSequence(picker_transmit, picker_pulse_single) // perform cool "broadcasting" animation, then settle in to a single pixel
-          goto state ready
-        } else {
-          Sensor.enable()
-          set animation to solid
-        }
-      }
-    }
-    if button.risingEdge {
-      Sensor.disable()
-      Animation.setAnim(pulse) // fade brightness of display in and out
-      reset timeout timer
-    }
-
-  loop{
-    Animation.update()
-    Sensor.update()
-    Network.update()
-    picker.update() // execute update() for current state
-  }
-
- 
-
-
-
-  // set a sequence of transitional animatinos, ending with a stable one.
- animation.setSequence(anim1, anim2, ...){
-  this->seq = [anim2, ...]
-  this->anim = anim1
-  this->transitioning = this->anim->transitional
- }
- anim.update() {
-  if this->anim->transitional
-    if this->transitioning == false
-      if this->seq->hasNextAnim
-        this->setAnim(this->seq->nextAnim)
- }
-
+    ------->  ready  <----------   confirm <------------------------------------
+   |            v                                                               |
+ reset    (color sensed)                                                        |
+   ^        streaming  <---------------------------------------                 |
+   |              v                                            |                |
+(timeout)   (button released)                                  |                |
+   ^              V                                            |                |
+   ---- preview countdown                                      |                |
+              v                                                |                |
+          (button pressed)                                     |                |
+              v                                                |                |
+----> confirm debounce --> (confirm debounce timer expires) ---                 |
+|            v                                                                  |
+|      (button released, then pressed) --------> (confirm counter is above 2) --
+|          v                                                
+------- (increase confirm presses counter)                  
 
 
   Sensor class:
@@ -107,11 +34,15 @@ public:
   RGBSensor(int ledPin, unsigned long intervalMillis)
   void enable();
   void disable();
+  void update();
+  bool isColor(); // returns true if the last reading was interesting; not black or white
+  uint32_t color(); // return the color code of the last reading
 private:
   Adafruit_TCS34725 tcs;
   Metro readingTimer;
   bool enabled;
   int ledPin;
+  uint32_t color; // last committed color code
 };
 RGBSensor::RGBSensor(int ledPin, unsigned long intervalMillis) {
   this->enabled = false;
@@ -134,36 +65,53 @@ void RGBSensor::update() {
 
   }
 }
+bool RGBSensor::isColor() {
+  // TODO return if this->color != black or white
+  if (this->enabled) {
 
-class Color {
-  public:
-    byte red, green, blue;
-
-  Color::Color(byte r, g, b){
-    this->red = r;
-    this->green = g;
-    this->blue = b;
   }
-};
+}
+uint32_t RGBSensor::color() {
+  return this->color;
+}
 
-//http://www.arduino.cc/playground/uploads/Code/FSM_1-6.zip
-#include <FiniteStateMachine.h>
 
-// define state machine
-State ready = State(readyEnter, readyUpdate, NULL);
-State preview = State(previewEnter, previewUpdate, NULL);
-FSM picker = FSM(initialize)
 
+// SPST Pushbutton
+#include <Bounce2.h>
+#define BUTTON_PIN 12
+Bounce Button = Bounce();
 
 // TCS45725 RGB Sensor
 #include "Adafruit_TCS34725.h"
-#define LED_PIN 13
+#define SENSOR_LED_PIN 13
 
 // NeoPixel FeatherWing
 #include "Picker_Display.h"
 #define DISPLAY_PIN 15
 #define BRIGHTNESS 84
-PickerDisplay Display
+PickerDisplay Display;
+
+#define RESET_TIMEOUT_MILIS 5000 // duration of reset timeout, in miliseconds
+#define CONFRIM_TIMEOUT_MILIS 500 // duration of confirmation timeout, in miliseconds
+#define CONFIRMATION_PRESSES 2 // number of button presses to confirm a color
+Metro resetTimer;
+Metro confirmTimer;
+
+//http://www.arduino.cc/playground/uploads/Code/FSM_1-6.zip
+#include <FiniteStateMachine.h>
+// define state machine
+State ready = State(readyEnter, readyUpdate, NULL);
+State streaming = State(NULL, streamingUpdate, NULL);
+State previewCountdown = State(previewCountdownEnter, previewCountdownUpdate, NULL);
+State confirmDebounce = State(confirmDebounceEnter, confirmDebounceUpdate, NULL);
+FSM picker = FSM(ready)
+
+bool
+  buttonReleased;
+
+uint8_t
+  buttonPresses;
 
 uint32_t 
   color,
@@ -172,12 +120,32 @@ uint32_t
 void setup() {
   Serial.begin(115200);
 
-  //start up neopixels, rgb sensor, and network.
+  // Set up the button with an internal pull-up
+  pinMode(BUTTON_PIN,INPUT_PULLUP);
+  Button.attach(BUTTON_PIN);
+  Button.interval(5); // interval in ms
+
+  // set duration of reset and confirm timers
+  resetTimeout.interval(RESET_TIMEOUT_MILIS);
+  confirmTimer.interval(CONFRIM_TIMEOUT_MILIS);
+
+  // start neopixels
   Display.begin(DISPLAY_PIN);
+  while(!Display);
+  Display.PickerPulseSingle();
   Display.setBrightness(BRIGHTNESS);
+
+  // start RGB sensor
+  Sensor.begin(SENSOR_LED_PIN);
+  while(!Sensor);
+
+  // start wifi
+  Network.begin();
+  while(!Network);
 }
 
 void loop() {
+  Button.update();
   Display.update();
   Sensor.update();
   Network.update();
@@ -189,9 +157,113 @@ void loop() {
   ALL the functions below are helper functions for the states of the program
 */
 
-///[ready state:update]
+///[ready state:enter]
 // fade in and out a sinlge pixel, rainbow if this->color == black
 void readyEnter() {
-  Animation.setAnim(picker_pulse_single);
-  Display.PickerPulseSingle(this->color);
+}
+
+///[ready state:update]
+// continue to pulse until button is pressed and sensor detects a color
+void readyUpdate() {
+  // toggle sensor when button is pressed or released
+  if ( Button.fell() ) {
+    Sensor.disable();
+  } else if ( Button.rose() ) {
+    Sensor.enable();
+  }
+
+  // has a new color been scanned?
+  if ( Sensor.isColor() && Sensor.color() != this->color) {
+    this->previewColor = Sensor.color();
+    Display.PickerPreviewInit(this->previewColor);
+    //TODO fix callback assignment syntax
+    Display.OnComplete(function(){
+      Display.Solid(this->previewColor)
+    });
+    picker.transitionTo(streaming);
+  }
+}
+
+///[streaming state:update]
+//
+void streamingUpdate() {
+  // update color if new one is scanned
+  if ( Sensor.isColor() && Sensor.color() != this->color) {
+    this->previewColor = Sensor.color();
+    Display.setColor(this->previewColor);
+  }
+
+  // if button is not pressed, transition to preview timeout
+  if ( Button.read() == HIGH ) {
+    Sensor.disable();
+    picker.transitionTo(previewCountdown);
+  }
+}
+
+///[previewCountdown state:enter]
+//
+void previewCountdownEnter() {
+  Display.PickerPulse(this->previewColor);
+  resetTimer.reset();
+}
+
+///[previewCountdown state:update]
+//
+void previewCountdownUpdate() {
+  // if color was not confirmed in time, reset
+  if ( resetTimer.check() ) {
+    Display.PickerReset(this->color);
+    //TODO fix callback assignment syntax
+    Display.OnComplete(function(){
+      Display.PickerPulseSingle(this->color)
+    });
+    picker.transitionTo(streaming);
+  }
+
+  // if button is pressed, confirm a double click
+  if ( Button.fell() ){
+    picker.transitionTo(confirmDebounce);
+  }
+}
+
+void confirmDebounceEnter() {
+  confirmTimer.reset();
+  buttonReleased = false;
+  buttonPresses = 1;
+}
+
+void confirmDebounceUpdate() {
+  // if color was not confirmed in time, reset
+  if ( resetTimer.check() ) {
+    Display.PickerReset(this->color);
+    //TODO fix callback assignment syntax
+    Display.OnComplete(function(){
+      Display.PickerPulseSingle(this->color)
+    });
+    picker.transitionTo(ready);
+  }
+
+  // if confirmation was not made, assume this is meant to continue streaming
+  if ( confirmTimer.check() ) {
+    Sensor.enable();
+    picker.transitionTo(streaming);
+  }
+
+  // button must be clicked multiple times to confirm
+  if ( Button.rose() ) {
+    buttonReleased = true;
+  } else if ( Button.fell() && buttonReleased ) {
+    if ( buttonPresses >= CONFIRMATION_PRESSES ) {
+      this->color = this->previewColor;
+      Display.PickerConfirm(this->color);
+      //TODO fix callback assignment syntax
+      Display.OnComplete(function(){
+        Display.PickerPulseSingle(this->color)
+      });
+      picker.transitionTo(ready);
+    } else {
+      buttonReleased = false;
+      buttonPresses++;
+    }
+  }
 }
