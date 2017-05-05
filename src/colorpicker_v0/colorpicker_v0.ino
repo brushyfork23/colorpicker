@@ -23,7 +23,7 @@
   sensor has state: reading/standby, set by sensor.enable()/disable()
   when entering reading state, metronome is reset
   while in reading state, metronome is checked and new reading is taken every x millis
-  on button press/release: call sensor.enable()/sensor.disable()
+  On button press/release: call sensor.enable()/sensor.disable()
 */
 
 
@@ -93,18 +93,20 @@ Bounce Button = Bounce();
 PickerDisplay Display;
 
 #define RESET_TIMEOUT_MILIS 5000 // duration of reset timeout, in miliseconds
-#define CONFRIM_TIMEOUT_MILIS 500 // duration of confirmation timeout, in miliseconds
+#define CONFRIM_COUNTDOWN_MILIS 500 // duration of confirmation countdown timer, in miliseconds
 #define CONFIRMATION_PRESSES 2 // number of button presses to confirm a color
 Metro resetTimer;
-Metro confirmTimer;
+Metro confirmCountdownTimer; // A debouncer for confirmation clicks.
+                    // It starts when the button is pressed while a preview is pulsing.
+                    // If the button is released again before time expires, count it as a confirm click.
+                    // Otherwise, assume this was a request to re-enable sensor and detect new colors.
 
 //http://www.arduino.cc/playground/uploads/Code/FSM_1-6.zip
 #include <FiniteStateMachine.h>
 // define state machine
 State ready = State(readyEnter, readyUpdate, NULL);
-State streaming = State(NULL, streamingUpdate, NULL);
+State previewStreaming = State(previewStreamingEnter, streamingUpdate, NULL);
 State previewCountdown = State(previewCountdownEnter, previewCountdownUpdate, NULL);
-State confirmDebounce = State(confirmDebounceEnter, confirmDebounceUpdate, NULL);
 FSM picker = FSM(ready)
 
 bool
@@ -125,14 +127,13 @@ void setup() {
   Button.attach(BUTTON_PIN);
   Button.interval(5); // interval in ms
 
-  // set duration of reset and confirm timers
+  // set duration of reset and confirm countdown timers
   resetTimeout.interval(RESET_TIMEOUT_MILIS);
-  confirmTimer.interval(CONFRIM_TIMEOUT_MILIS);
+  confirmCountdownTimer.interval(CONFRIM_COUNTDOWN_MILIS);
 
   // start neopixels
   Display.begin(DISPLAY_PIN);
   while(!Display);
-  Display.PickerPulseSingle();
   Display.setBrightness(BRIGHTNESS);
 
   // start RGB sensor
@@ -158,8 +159,9 @@ void loop() {
 */
 
 ///[ready state:enter]
-// fade in and out a sinlge pixel, rainbow if this->color == black
+// fade in and out a sinlge pixel, rainbow if this->color == 0
 void readyEnter() {
+  Display.addToSequence(PICKER_PULSE_SINGLE);
 }
 
 ///[ready state:update]
@@ -175,95 +177,81 @@ void readyUpdate() {
   // has a new color been scanned?
   if ( Sensor.isColor() && Sensor.color() != this->color) {
     this->previewColor = Sensor.color();
-    Display.PickerPreviewInit(this->previewColor);
-    //TODO fix callback assignment syntax
-    Display.OnComplete(function(){
-      Display.Solid(this->previewColor)
-    });
+    Display.setAnimation(PICKER_PREVIEW_INIT);
+    Display.setColor(this->previewColor);
     picker.transitionTo(streaming);
   }
 }
 
-///[streaming state:update]
-//
-void streamingUpdate() {
-  // update color if new one is scanned
-  if ( Sensor.isColor() && Sensor.color() != this->color) {
-    this->previewColor = Sensor.color();
-    Display.setColor(this->previewColor);
-  }
-
-  // if button is not pressed, transition to preview timeout
+///[previewStreaming state:enter]
+// transition display to showing full bright whatever color is scanned
+void previewStreamingEnter() {
+  Sensor.enable();
+  Display.addToSequence(SOLID);
+}
+///[previewStreaming state:update]
+// update desplayed color with scanned color until button is released
+void previewStreamingUpdate() {
+  // if button has been released, turn off sensor and start timeout countdown
   if ( Button.read() == HIGH ) {
     Sensor.disable();
     picker.transitionTo(previewCountdown);
   }
+
+  // update color if new one is scanned
+  if ( Sensor.isColor() && Sensor.color() != this->previewColor) {
+    this->previewColor = Sensor.color();
+    Display.setColor(this->previewColor);
+  }
 }
 
 ///[previewCountdown state:enter]
-//
+// set display to pulse the preview color, and start a countdown
 void previewCountdownEnter() {
-  Display.PickerPulse(this->previewColor);
+  Display.setAnimation(PICKER_PULSE);
   resetTimer.reset();
+  confirmCountdownTimer.reset();
+  confirmationPresses = 0;
 }
 
 ///[previewCountdown state:update]
-//
+// If button is briefly pressed, check if there were enough recent presses to confirm.
+// If button is held, go back to preview streaming.
+// if button does not get pressed again in time, reset.
 void previewCountdownUpdate() {
-  // if color was not confirmed in time, reset
-  if ( resetTimer.check() ) {
-    Display.PickerReset(this->color);
-    //TODO fix callback assignment syntax
-    Display.OnComplete(function(){
-      Display.PickerPulseSingle(this->color)
-    });
-    picker.transitionTo(streaming);
-  }
-
-  // if button is pressed, confirm a double click
-  if ( Button.fell() ){
-    picker.transitionTo(confirmDebounce);
-  }
-}
-
-void confirmDebounceEnter() {
-  confirmTimer.reset();
-  buttonReleased = false;
-  buttonPresses = 1;
-}
-
-void confirmDebounceUpdate() {
-  // if color was not confirmed in time, reset
-  if ( resetTimer.check() ) {
-    Display.PickerReset(this->color);
-    //TODO fix callback assignment syntax
-    Display.OnComplete(function(){
-      Display.PickerPulseSingle(this->color)
-    });
-    picker.transitionTo(ready);
-  }
-
-  // if confirmation was not made, assume this is meant to continue streaming
-  if ( confirmTimer.check() ) {
-    Sensor.enable();
-    picker.transitionTo(streaming);
-  }
-
-  // button must be clicked multiple times to confirm
+  // When button is released, increase count of presses and check if this is enough to confirm
   if ( Button.rose() ) {
-    buttonReleased = true;
-  } else if ( Button.fell() && buttonReleased ) {
-    if ( buttonPresses >= CONFIRMATION_PRESSES ) {
+    confirmationPresses++;
+    if ( confirmationPresses >= CONFIRMATION_PRESSES ) {
+      // There have been enough presses; confirm color
       this->color = this->previewColor;
-      Display.PickerConfirm(this->color);
-      //TODO fix callback assignment syntax
-      Display.OnComplete(function(){
-        Display.PickerPulseSingle(this->color)
-      });
-      picker.transitionTo(ready);
+      Display.setAnimation(PICKER_CONFIRM);
     } else {
-      buttonReleased = false;
-      buttonPresses++;
+      // There are still more presses required; reset confirmation timeout
+      confirmCountdownTimer.reset();
     }
   }
+
+  // When button is pressed, reset confirmation debounce timer
+  if ( Button.fell() ){
+    confirmCountdownTimer.reset();
+  }
+
+  // check time elapsed on the confirmation timer since the last button change
+  if ( confirmCountdownTimer.check() ) {
+    if ( Button.check() == LOW ) {
+      // Button has been held for long enough, go back to preview streaming
+      picker.transitionTo(previewStreaming);
+    } else if ( confirmationPresses > 0 ) {
+      // Too much time has passed between confirmation clicks; reset confirmation press counter
+      confirmationPresses = 0;
+    }
+  }
+
+  // if color was not confirmed in time, reset
+  if ( resetTimer.check() ) {
+    Display.setAnimation(PICKER_RESET);
+    picker.transitionTo(ready);
+  }
+}
 }

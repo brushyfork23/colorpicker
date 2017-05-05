@@ -36,10 +36,13 @@ class PickerDisplay {
 	    void setBrightness(byte brightness=BRIGHTNESS);
 	    // set the random seed for animation
     	void startSeed(uint16_t seed = 1337);
-    	void setCallback(void (*callback)());
     	void setColor(uint32_t color);
-    	// runs the animation
+    	// runs the animation; transitions to next 
     	void update();
+    	// immediately change the current animation
+    	void setAnimation(animation anim);
+    	// add animation to the end of the queue
+    	void addToSequence(animation anim);
 
     	// animations
     	void None();
@@ -57,19 +60,20 @@ class PickerDisplay {
     
     	Metro pushNextFrame;
 
+    	animation sequence[2]; // up to 2 animations may be queued up
+
 		void SolidUpdate();
 		void PickerPreviewInitUpdate();
 		void PickerResetUpdate();
 		void PickerPulseUpdate();
 		void PickerPulseSingleUpdate();
 		void PickerConfirmUpdate();
+		void OnComplete();
     
     	uint16_t TotalSteps;  // total number of steps in the pattern
     	uint16_t Index;  // current step within the pattern
     	uint32_t color;
     	uint32_t previewColor;
-    
-    	void (*OnComplete)();  // Callback on completion of pattern
     
 };
 

@@ -42,87 +42,92 @@ void PickerDisplay::setColor(uint32_t color) {
   this->color = color;
 }
 
+// Change to the next animation in the queue
+void OnComplete() {
+  if ( )
+}
+
 // Update the pattern
-    void Update()
+void Update()
+{
+    if(pushNextFrame.check())
     {
-        if(pushNextFrame.check())
+        lastUpdate = millis();
+        switch(ActivePattern)
         {
-            lastUpdate = millis();
-            switch(ActivePattern)
-            {
-                case RAINBOW_CYCLE:
-                    RainbowCycleUpdate();
-                    break;
-                case FADE:
-                    FadeUpdate();
-                    break;
-                case SOLID:
-                	SolidUpdate();
-                	break;
-                case PICKER_PREVIEW_Init:
-                	PickerPreviewInitUpdate();
-                	break;
-                case PICKER_RESET:
-                	PickerResetUpdate();
-                	break;
-                case PICKER_PULSE:
-                	PickerPulseUpdate();
-                	break;
-                case PICKER_PULSE_SINGLE:
-                	PickerPulseSingleUpdate();
-                	break;
-                default:
-                    break;
-            }
+            case RAINBOW_CYCLE:
+                RainbowCycleUpdate();
+                break;
+            case FADE:
+                FadeUpdate();
+                break;
+            case SOLID:
+            	SolidUpdate();
+            	break;
+            case PICKER_PREVIEW_Init:
+            	PickerPreviewInitUpdate();
+            	break;
+            case PICKER_RESET:
+            	PickerResetUpdate();
+            	break;
+            case PICKER_PULSE:
+            	PickerPulseUpdate();
+            	break;
+            case PICKER_PULSE_SINGLE:
+            	PickerPulseSingleUpdate();
+            	break;
+            default:
+                break;
         }
     }
-  
-    // Increment the Index and reset at the end
-    void Increment()
+}
+
+// Increment the Index and reset at the end
+void Increment()
+{
+   this->Index++;
+   if (this->Index >= this->TotalSteps)
+    {
+        this->Index = 0;
+        if (this->OnComplete != NULL)
+        {
+            this->OnComplete(); // call the comlpetion callback
+        }
+    }
+}
+
+
+/**
+	ANIMATIONS
+**/
+
+	void None()
 	{
-       this->Index++;
-       if (this->Index >= this->TotalSteps)
-        {
-            this->Index = 0;
-            if (this->OnComplete != NULL)
-            {
-                this->OnComplete(); // call the comlpetion callback
-            }
-        }
-    }
+		this->ActivePattern = NONE;
+		fill_solid( this->leds, NUL_LEDS, CRGB::Black);
+	}
 
+	void Solid(uint32_t color)
+{
+	this->ActivePattern = SOLID;
+  this->color = CRGB(color)
+}
 
-    /**
-    	ANIMATIONS
-    **/
+void SolidUpdate() {
+	ColorSet(Color1);
+	show();
+}
 
-   	void None()
-   	{
-   		this->ActivePattern = NONE;
-   		fill_solid( this->leds, NUL_LEDS, CRGB::Black);
-   	}
+void PickerPreviewInit(uint32_t color)
+{
+	this->ActivePattern = PICKER_PREVIEW_INIT;
+	this->TotalSteps = 8;
+	this->Index = 0;
+	this->previewColor = color;
+}
 
-   	void Solid(uint32_t color)
-    {
-    	this->ActivePattern = SOLID;
-      this->color = CRGB(color)
-    }
-
-    void SolidUpdate() {
-    	ColorSet(Color1);
-    	show();
-    }
-
-    void PickerPreviewInit(uint32_t color)
-    {
-    	this->ActivePattern = PICKER_PREVIEW_INIT;
-    	this->TotalSteps = 8;
-    	this->Index = 0;
-    	this->previewColor = color;
-    }
-
-    // over the course of 8 steps, fill in the display with the new color.
-    void PickerPreviewInitUpdate()
-    {
-    	fill_solid()
-    }
+// over the course of 8 steps, fill in the display with the new color.
+void PickerPreviewInitUpdate()
+{
+	fill_solid()
+}
