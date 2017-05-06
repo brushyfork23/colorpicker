@@ -16,6 +16,7 @@ Runs animation of an Adafruit NeoPixel FeatherWing
 // Animation types supported:
 enum animation {
 	NONE,
+    BLACK,
 	SOLID,
 	PICKER_PREVIEW_INIT,
 	PICKER_RESET,
@@ -41,17 +42,8 @@ class PickerDisplay {
     	void update();
     	// immediately change the current animation
     	void setAnimation(animation anim);
-    	// add animation to the end of the queue
-    	void addToSequence(animation anim);
-
-    	// animations
-    	void None();
-    	void Solid(uint32_t color);
-    	void PickerPreviewInit(uint32_t color);
-    	void PickerReset(uint32_t color);
-    	void PickerPulse(uint32_t color);
-    	void PickerPulseSingle(uint32_t color);
-    	void PickerConfirm(uint32_t color);
+    	// queue an animation to display next
+    	void queueAnimation(animation anim);
 
 	private:
 		CRGB leds[NUM_LEDS];
@@ -60,7 +52,7 @@ class PickerDisplay {
     
     	Metro pushNextFrame;
 
-    	animation sequence[2]; // up to 2 animations may be queued up
+    	animation queue;
 
 		void SolidUpdate();
 		void PickerPreviewInitUpdate();
@@ -72,8 +64,7 @@ class PickerDisplay {
     
     	uint16_t TotalSteps;  // total number of steps in the pattern
     	uint16_t Index;  // current step within the pattern
-    	uint32_t color;
-    	uint32_t previewColor;
+    	CRGB color;
     
 };
 

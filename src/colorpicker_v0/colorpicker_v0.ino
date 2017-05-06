@@ -161,7 +161,7 @@ void loop() {
 ///[ready state:enter]
 // fade in and out a sinlge pixel, rainbow if this->color == 0
 void readyEnter() {
-  Display.addToSequence(PICKER_PULSE_SINGLE);
+  Display.queueAnimation(PICKER_PULSE_SINGLE);
 }
 
 ///[ready state:update]
@@ -187,7 +187,7 @@ void readyUpdate() {
 // transition display to showing full bright whatever color is scanned
 void previewStreamingEnter() {
   Sensor.enable();
-  Display.addToSequence(SOLID);
+  Display.queueAnimation(SOLID);
 }
 ///[previewStreaming state:update]
 // update desplayed color with scanned color until button is released
@@ -226,6 +226,7 @@ void previewCountdownUpdate() {
       // There have been enough presses; confirm color
       this->color = this->previewColor;
       Display.setAnimation(PICKER_CONFIRM);
+      Network.publishColor(this->color);
     } else {
       // There are still more presses required; reset confirmation timeout
       confirmCountdownTimer.reset();
