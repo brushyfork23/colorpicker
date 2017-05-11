@@ -52,6 +52,9 @@ void setAnimation(animation anim, bool clearQueue) {
     case BLACK:
       Black();
       break;
+    case SOLID:
+      Solid();
+      break;
     case PICKER_PREVIEW_INIT:
       PickerPreviewInit();
       break;
@@ -133,8 +136,20 @@ void Black() {
     this->TotalSteps = 0;
 }
 
-void SolidUpdate() {
+void Solid() {
   fill_solid( this->leds, NUL_LEDS, this->color);
+  // save color to tmp so changes can be detected and we don't have to write every update loop iteration
+  this->tmpCRGB = this->color;
+  // TotalSteps must be set to 0 so that when queue() is called next it will instantly transition
+  this->TotalSteps = 0;
+}
+
+void SolidUpdate() {
+  // update color if it has changed
+  if (this->tmpCRGB != this->color) {
+    this->tmpCRGB = this->color;
+    fill_solid( this->leds, NUL_LEDS, this->color);
+  }
 }
 
 void PickerPulseSingle() {
@@ -150,7 +165,7 @@ void PickerPulseSingleUpdate() {
   if ( this->Index = 0) {
     this->actor2Index = this->actor1Index;
     // clear previous tmp
-    this->tmp = CRGB(0,0,0);
+    this->tmpCRGB = CRGB(0,0,0);
     // select new actor
     uint16_t newAddr;
     do {
@@ -160,13 +175,13 @@ void PickerPulseSingleUpdate() {
   }
 
   // if no color is set, cycle through a rainbow
-  if (!this->isColor()) {
+  if (this->color == 0) { // TODO: verify this actually returns true when no color is set.  If not, may need to replace with CRGB(0,0,0)
     // cycle previous actor's color
     leds[this->actor2Index].setHue(this->randCounter);
     // cycle new actor
-    this->tmp.setHue(this->randCounter++);
+    this->tmpCRGB.setHue(this->randCounter++);
   } else {
-    this->tmp = CRGB(this->color);
+    this->tmpCRGB = this->color;
   }
 
   // fade all LEDs out
@@ -174,216 +189,225 @@ void PickerPulseSingleUpdate() {
 
   if (this->Index < 12) {
     // for the first 3/4, fade actor in
-    this->tmp.addToRGB(16);
+    this->tmpCRGB += this->tmpCRGB.nscale8_video(16); // TODO: verify that you don't need to scale an additional tmp color.  My concern is that the object being assigned is manipulated by the nscale8_video method, effectively negating the change.
   } else {
     // for the last 1/4, fade actor out
-    this->tmp.fadeToBlackBy(16);
+    this->tmpCRGB.fadeToBlackBy(16); // TODO: verify this actually fades it out, and you don't need to do this->tmpCRGB -= this->tmpCRGB.fadeToBlackBy(16);
   }
 
   // update actor
-  leds[this->actor1Index] = this->tmp;
+  leds[this->actor1Index] = this->tmpCRGB;
 }
 
 void PickerPreviewInit() {
   this->TotalSteps = 8;
-  this->tmp = CRGB(this->color);
 }
 
 // over the course of 8 steps, fill in the display with the new color.
 void PickerPreviewInitUpdate()
 {
-  // update fade-in color
-  if (this->isColor()) {
-    this->tmp = CRGB(this->color);
-  }
-
   // draw the next frame
   switch (this->Index) {
     case 0:
-      leds[XY(0,7)] = this->tmp;
-      leds[XY(1,7)] = this->tmp;
-      leds[XY(2,7)] = this->tmp;
-      leds[XY(3,7)] = this->tmp;
+      leds[XY(0,7)] = this->color;
+      leds[XY(1,7)] = this->color;
+      leds[XY(2,7)] = this->color;
+      leds[XY(3,7)] = this->color;
 
-      leds[XY(0,6)] = this->tmp;
-      leds[XY(3,6)] = this->tmp;
+      leds[XY(0,6)] = this->color;
+      leds[XY(3,6)] = this->color;
       break;
     case 1:
-      leds[XY(0,7)] = this->tmp;
-      leds[XY(1,7)] = this->tmp;
-      leds[XY(2,7)] = this->tmp;
-      leds[XY(3,7)] = this->tmp;
+      leds[XY(0,7)] = this->color;
+      leds[XY(1,7)] = this->color;
+      leds[XY(2,7)] = this->color;
+      leds[XY(3,7)] = this->color;
 
-      leds[XY(0,6)] = this->tmp;
-      leds[XY(1,6)] = this->tmp;
-      leds[XY(2,6)] = this->tmp;
-      leds[XY(3,6)] = this->tmp;
+      leds[XY(0,6)] = this->color;
+      leds[XY(1,6)] = this->color;
+      leds[XY(2,6)] = this->color;
+      leds[XY(3,6)] = this->color;
 
-      leds[XY(0,5)] = this->tmp;
-      leds[XY(3,5)] = this->tmp;
+      leds[XY(0,5)] = this->color;
+      leds[XY(3,5)] = this->color;
       break;
     case 2:
-      leds[XY(0,7)] = this->tmp;
-      leds[XY(1,7)] = this->tmp;
-      leds[XY(2,7)] = this->tmp;
-      leds[XY(3,7)] = this->tmp;
+      leds[XY(0,7)] = this->color;
+      leds[XY(1,7)] = this->color;
+      leds[XY(2,7)] = this->color;
+      leds[XY(3,7)] = this->color;
 
-      leds[XY(0,6)] = this->tmp;
-      leds[XY(1,6)] = this->tmp;
-      leds[XY(2,6)] = this->tmp;
-      leds[XY(3,6)] = this->tmp;
+      leds[XY(0,6)] = this->color;
+      leds[XY(1,6)] = this->color;
+      leds[XY(2,6)] = this->color;
+      leds[XY(3,6)] = this->color;
 
-      leds[XY(0,5)] = this->tmp;
-      leds[XY(3,5)] = this->tmp;
+      leds[XY(0,5)] = this->color;
+      leds[XY(3,5)] = this->color;
 
-      leds[XY(0,4)] = this->tmp;
-      leds[XY(3,4)] = this->tmp;
+      leds[XY(0,4)] = this->color;
+      leds[XY(3,4)] = this->color;
       break;
     case 3:
-      leds[XY(0,7)] = this->tmp;
-      leds[XY(1,7)] = this->tmp;
-      leds[XY(2,7)] = this->tmp;
-      leds[XY(3,7)] = this->tmp;
+      leds[XY(0,7)] = this->color;
+      leds[XY(1,7)] = this->color;
+      leds[XY(2,7)] = this->color;
+      leds[XY(3,7)] = this->color;
 
-      leds[XY(0,6)] = this->tmp;
-      leds[XY(1,6)] = this->tmp;
-      leds[XY(2,6)] = this->tmp;
-      leds[XY(3,6)] = this->tmp;
+      leds[XY(0,6)] = this->color;
+      leds[XY(1,6)] = this->color;
+      leds[XY(2,6)] = this->color;
+      leds[XY(3,6)] = this->color;
 
-      leds[XY(0,5)] = this->tmp;
-      leds[XY(1,5)] = this->tmp;
-      leds[XY(2,5)] = this->tmp;
-      leds[XY(3,5)] = this->tmp;
+      leds[XY(0,5)] = this->color;
+      leds[XY(1,5)] = this->color;
+      leds[XY(2,5)] = this->color;
+      leds[XY(3,5)] = this->color;
 
-      leds[XY(0,4)] = this->tmp;
-      leds[XY(3,4)] = this->tmp;
+      leds[XY(0,4)] = this->color;
+      leds[XY(3,4)] = this->color;
 
-      leds[XY(0,3)] = this->tmp;
-      leds[XY(3,3)] = this->tmp;
+      leds[XY(0,3)] = this->color;
+      leds[XY(3,3)] = this->color;
 
-      leds[XY(0,2)] = this->tmp;
-      leds[XY(3,2)] = this->tmp;
+      leds[XY(0,2)] = this->color;
+      leds[XY(3,2)] = this->color;
       break;
     case 4:
       // move center 4 pixels down one
       leds[XY(1,2)] = leds[XY(1,4)];
       leds[XY(2,2)] = leds[XY(2,4)];
 
-      leds[XY(0,7)] = this->tmp;
-      leds[XY(1,7)] = this->tmp;
-      leds[XY(2,7)] = this->tmp;
-      leds[XY(3,7)] = this->tmp;
+      leds[XY(0,7)] = this->color;
+      leds[XY(1,7)] = this->color;
+      leds[XY(2,7)] = this->color;
+      leds[XY(3,7)] = this->color;
 
-      leds[XY(0,6)] = this->tmp;
-      leds[XY(1,6)] = this->tmp;
-      leds[XY(2,6)] = this->tmp;
-      leds[XY(3,6)] = this->tmp;
+      leds[XY(0,6)] = this->color;
+      leds[XY(1,6)] = this->color;
+      leds[XY(2,6)] = this->color;
+      leds[XY(3,6)] = this->color;
 
-      leds[XY(0,5)] = this->tmp;
-      leds[XY(1,5)] = this->tmp;
-      leds[XY(2,5)] = this->tmp;
-      leds[XY(3,5)] = this->tmp;
+      leds[XY(0,5)] = this->color;
+      leds[XY(1,5)] = this->color;
+      leds[XY(2,5)] = this->color;
+      leds[XY(3,5)] = this->color;
 
-      leds[XY(0,4)] = this->tmp;
-      leds[XY(1,4)] = this->tmp;
-      leds[XY(2,4)] = this->tmp;
-      leds[XY(3,4)] = this->tmp;
+      leds[XY(0,4)] = this->color;
+      leds[XY(1,4)] = this->color;
+      leds[XY(2,4)] = this->color;
+      leds[XY(3,4)] = this->color;
 
-      leds[XY(0,3)] = this->tmp;
-      leds[XY(3,3)] = this->tmp;
+      leds[XY(0,3)] = this->color;
+      leds[XY(3,3)] = this->color;
 
-      leds[XY(0,2)] = this->tmp;
-      leds[XY(3,2)] = this->tmp;
+      leds[XY(0,2)] = this->color;
+      leds[XY(3,2)] = this->color;
 
-      leds[XY(0,1)] = this->tmp;
-      leds[XY(3,1)] = this->tmp;
+      leds[XY(0,1)] = this->color;
+      leds[XY(3,1)] = this->color;
 
-      leds[XY(0,0)] = this->tmp;
-      leds[XY(3,0)] = this->tmp;
+      leds[XY(0,0)] = this->color;
+      leds[XY(3,0)] = this->color;
       break;
     case 5:
       // move down again
       leds[XY(1,1)] = leds[XY(1,3)];
       leds[XY(2,1)] = leds[XY(2,3)];
 
-      leds[XY(0,7)] = this->tmp;
-      leds[XY(1,7)] = this->tmp;
-      leds[XY(2,7)] = this->tmp;
-      leds[XY(3,7)] = this->tmp;
+      leds[XY(0,7)] = this->color;
+      leds[XY(1,7)] = this->color;
+      leds[XY(2,7)] = this->color;
+      leds[XY(3,7)] = this->color;
 
-      leds[XY(0,6)] = this->tmp;
-      leds[XY(1,6)] = this->tmp;
-      leds[XY(2,6)] = this->tmp;
-      leds[XY(3,6)] = this->tmp;
+      leds[XY(0,6)] = this->color;
+      leds[XY(1,6)] = this->color;
+      leds[XY(2,6)] = this->color;
+      leds[XY(3,6)] = this->color;
 
-      leds[XY(0,5)] = this->tmp;
-      leds[XY(1,5)] = this->tmp;
-      leds[XY(2,5)] = this->tmp;
-      leds[XY(3,5)] = this->tmp;
+      leds[XY(0,5)] = this->color;
+      leds[XY(1,5)] = this->color;
+      leds[XY(2,5)] = this->color;
+      leds[XY(3,5)] = this->color;
 
-      leds[XY(0,4)] = this->tmp;
-      leds[XY(1,4)] = this->tmp;
-      leds[XY(2,4)] = this->tmp;
-      leds[XY(3,4)] = this->tmp;
+      leds[XY(0,4)] = this->color;
+      leds[XY(1,4)] = this->color;
+      leds[XY(2,4)] = this->color;
+      leds[XY(3,4)] = this->color;
 
-      leds[XY(0,3)] = this->tmp;
-      leds[XY(1,3)] = this->tmp;
-      leds[XY(2,3)] = this->tmp;
-      leds[XY(3,3)] = this->tmp;
+      leds[XY(0,3)] = this->color;
+      leds[XY(1,3)] = this->color;
+      leds[XY(2,3)] = this->color;
+      leds[XY(3,3)] = this->color;
 
-      leds[XY(0,2)] = this->tmp;
-      leds[XY(3,2)] = this->tmp;
+      leds[XY(0,2)] = this->color;
+      leds[XY(3,2)] = this->color;
 
-      leds[XY(0,1)] = this->tmp;
-      leds[XY(3,1)] = this->tmp;
+      leds[XY(0,1)] = this->color;
+      leds[XY(3,1)] = this->color;
 
-      leds[XY(0,0)] = this->tmp;
-      leds[XY(3,0)] = this->tmp;
+      leds[XY(0,0)] = this->color;
+      leds[XY(3,0)] = this->color;
       break;
     case 6:
       // move down again
       leds[XY(1,0)] = leds[XY(1,2)];
       leds[XY(2,0)] = leds[XY(2,2)];
 
-      leds[XY(0,7)] = this->tmp;
-      leds[XY(1,7)] = this->tmp;
-      leds[XY(2,7)] = this->tmp;
-      leds[XY(3,7)] = this->tmp;
+      leds[XY(0,7)] = this->color;
+      leds[XY(1,7)] = this->color;
+      leds[XY(2,7)] = this->color;
+      leds[XY(3,7)] = this->color;
 
-      leds[XY(0,6)] = this->tmp;
-      leds[XY(1,6)] = this->tmp;
-      leds[XY(2,6)] = this->tmp;
-      leds[XY(3,6)] = this->tmp;
+      leds[XY(0,6)] = this->color;
+      leds[XY(1,6)] = this->color;
+      leds[XY(2,6)] = this->color;
+      leds[XY(3,6)] = this->color;
 
-      leds[XY(0,5)] = this->tmp;
-      leds[XY(1,5)] = this->tmp;
-      leds[XY(2,5)] = this->tmp;
-      leds[XY(3,5)] = this->tmp;
+      leds[XY(0,5)] = this->color;
+      leds[XY(1,5)] = this->color;
+      leds[XY(2,5)] = this->color;
+      leds[XY(3,5)] = this->color;
 
-      leds[XY(0,4)] = this->tmp;
-      leds[XY(1,4)] = this->tmp;
-      leds[XY(2,4)] = this->tmp;
-      leds[XY(3,4)] = this->tmp;
+      leds[XY(0,4)] = this->color;
+      leds[XY(1,4)] = this->color;
+      leds[XY(2,4)] = this->color;
+      leds[XY(3,4)] = this->color;
 
-      leds[XY(0,3)] = this->tmp;
-      leds[XY(1,3)] = this->tmp;
-      leds[XY(2,3)] = this->tmp;
-      leds[XY(3,3)] = this->tmp;
+      leds[XY(0,3)] = this->color;
+      leds[XY(1,3)] = this->color;
+      leds[XY(2,3)] = this->color;
+      leds[XY(3,3)] = this->color;
 
-      leds[XY(0,2)] = this->tmp;
-      leds[XY(1,2)] = this->tmp;
-      leds[XY(2,2)] = this->tmp;
-      leds[XY(3,2)] = this->tmp;
+      leds[XY(0,2)] = this->color;
+      leds[XY(1,2)] = this->color;
+      leds[XY(2,2)] = this->color;
+      leds[XY(3,2)] = this->color;
 
-      leds[XY(0,1)] = this->tmp;
-      leds[XY(3,1)] = this->tmp;
+      leds[XY(0,1)] = this->color;
+      leds[XY(3,1)] = this->color;
 
-      leds[XY(0,0)] = this->tmp;
-      leds[XY(3,0)] = this->tmp;
+      leds[XY(0,0)] = this->color;
+      leds[XY(3,0)] = this->color;
       break;
     case 7:
-      fill_solid( this->leds, NUL_LEDS, this->tmp);
+      fill_solid( this->leds, NUL_LEDS, this->color);
       break;
+  }
+}
+
+void PickerPulse() {
+  this->TotalSteps = 16;
+  fill_solid( this->leds, NUL_LEDS, this->color);
+  leds.maximizeBrightness();
+}
+
+// fade entire display from bright to dim
+void PickerPulseUpdate() {
+  if (this->Index < 8) {
+    leds.fadeLightBy(32);
+  } else {
+    leds += leds.fadeLightBy(32);
   }
 }
 
@@ -394,14 +418,6 @@ void PickerReset() {
 // push out old color
 void PickerResetUpdate() {
   // draw black pixel in center, expanding outward
-}
-
-void PickerPulse() {
-  this->TotalSteps = 20;
-}
-
-// fade entire display from bright to dim
-void PickerPulseUpdate() {
 }
 
 void PickerConfirm() {

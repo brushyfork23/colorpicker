@@ -66,7 +66,7 @@ void RGBSensor::update() {
   }
 }
 bool RGBSensor::isColor() {
-  // TODO return if this->color != black or white
+  // TODO return if this->color != black or white (or anything returned when not actually touching a color)
   if (this->enabled) {
 
   }

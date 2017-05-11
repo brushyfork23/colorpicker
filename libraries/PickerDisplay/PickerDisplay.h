@@ -89,6 +89,7 @@ class PickerDisplay {
 
     	animation queue;
 
+        void Solid();
 		void SolidUpdate();
 		void PickerPreviewInitUpdate();
 		void PickerResetUpdate();
@@ -105,7 +106,7 @@ class PickerDisplay {
     	uint8_t randCounter;
     	uint8_t actor1Index;
     	uint8_t actor2Index;
-    	CRGB tmp;
+    	CRGB tmpCRGB;
     
 };
 
