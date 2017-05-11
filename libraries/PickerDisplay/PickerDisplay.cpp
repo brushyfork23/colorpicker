@@ -137,32 +137,6 @@ void SolidUpdate() {
   fill_solid( this->leds, NUL_LEDS, this->color);
 }
 
-void PickerPreviewInit() {
-  this->TotalSteps = 8;
-}
-
-// over the course of 8 steps, fill in the display with the new color.
-void PickerPreviewInitUpdate()
-{
-}
-
-void PickerReset() {
-  this->TotalSteps = 8;
-}
-
-// push out old color
-void PickerResetUpdate() {
-  // draw black pixel in center, expanding outward
-}
-
-void PickerPulse() {
-  this->TotalSteps = 20;
-}
-
-// fade entire display from bright to dim
-void PickerPulseUpdate() {
-}
-
 void PickerPulseSingle() {
   this->TotalSteps = 16;
   this->randCounter = random8();
@@ -208,6 +182,226 @@ void PickerPulseSingleUpdate() {
 
   // update actor
   leds[this->actor1Index] = this->tmp;
+}
+
+void PickerPreviewInit() {
+  this->TotalSteps = 8;
+  this->tmp = CRGB(this->color);
+}
+
+// over the course of 8 steps, fill in the display with the new color.
+void PickerPreviewInitUpdate()
+{
+  // update fade-in color
+  if (this->isColor()) {
+    this->tmp = CRGB(this->color);
+  }
+
+  // draw the next frame
+  switch (this->Index) {
+    case 0:
+      leds[XY(0,7)] = this->tmp;
+      leds[XY(1,7)] = this->tmp;
+      leds[XY(2,7)] = this->tmp;
+      leds[XY(3,7)] = this->tmp;
+
+      leds[XY(0,6)] = this->tmp;
+      leds[XY(3,6)] = this->tmp;
+      break;
+    case 1:
+      leds[XY(0,7)] = this->tmp;
+      leds[XY(1,7)] = this->tmp;
+      leds[XY(2,7)] = this->tmp;
+      leds[XY(3,7)] = this->tmp;
+
+      leds[XY(0,6)] = this->tmp;
+      leds[XY(1,6)] = this->tmp;
+      leds[XY(2,6)] = this->tmp;
+      leds[XY(3,6)] = this->tmp;
+
+      leds[XY(0,5)] = this->tmp;
+      leds[XY(3,5)] = this->tmp;
+      break;
+    case 2:
+      leds[XY(0,7)] = this->tmp;
+      leds[XY(1,7)] = this->tmp;
+      leds[XY(2,7)] = this->tmp;
+      leds[XY(3,7)] = this->tmp;
+
+      leds[XY(0,6)] = this->tmp;
+      leds[XY(1,6)] = this->tmp;
+      leds[XY(2,6)] = this->tmp;
+      leds[XY(3,6)] = this->tmp;
+
+      leds[XY(0,5)] = this->tmp;
+      leds[XY(3,5)] = this->tmp;
+
+      leds[XY(0,4)] = this->tmp;
+      leds[XY(3,4)] = this->tmp;
+      break;
+    case 3:
+      leds[XY(0,7)] = this->tmp;
+      leds[XY(1,7)] = this->tmp;
+      leds[XY(2,7)] = this->tmp;
+      leds[XY(3,7)] = this->tmp;
+
+      leds[XY(0,6)] = this->tmp;
+      leds[XY(1,6)] = this->tmp;
+      leds[XY(2,6)] = this->tmp;
+      leds[XY(3,6)] = this->tmp;
+
+      leds[XY(0,5)] = this->tmp;
+      leds[XY(1,5)] = this->tmp;
+      leds[XY(2,5)] = this->tmp;
+      leds[XY(3,5)] = this->tmp;
+
+      leds[XY(0,4)] = this->tmp;
+      leds[XY(3,4)] = this->tmp;
+
+      leds[XY(0,3)] = this->tmp;
+      leds[XY(3,3)] = this->tmp;
+
+      leds[XY(0,2)] = this->tmp;
+      leds[XY(3,2)] = this->tmp;
+      break;
+    case 4:
+      // move center 4 pixels down one
+      leds[XY(1,2)] = leds[XY(1,4)];
+      leds[XY(2,2)] = leds[XY(2,4)];
+
+      leds[XY(0,7)] = this->tmp;
+      leds[XY(1,7)] = this->tmp;
+      leds[XY(2,7)] = this->tmp;
+      leds[XY(3,7)] = this->tmp;
+
+      leds[XY(0,6)] = this->tmp;
+      leds[XY(1,6)] = this->tmp;
+      leds[XY(2,6)] = this->tmp;
+      leds[XY(3,6)] = this->tmp;
+
+      leds[XY(0,5)] = this->tmp;
+      leds[XY(1,5)] = this->tmp;
+      leds[XY(2,5)] = this->tmp;
+      leds[XY(3,5)] = this->tmp;
+
+      leds[XY(0,4)] = this->tmp;
+      leds[XY(1,4)] = this->tmp;
+      leds[XY(2,4)] = this->tmp;
+      leds[XY(3,4)] = this->tmp;
+
+      leds[XY(0,3)] = this->tmp;
+      leds[XY(3,3)] = this->tmp;
+
+      leds[XY(0,2)] = this->tmp;
+      leds[XY(3,2)] = this->tmp;
+
+      leds[XY(0,1)] = this->tmp;
+      leds[XY(3,1)] = this->tmp;
+
+      leds[XY(0,0)] = this->tmp;
+      leds[XY(3,0)] = this->tmp;
+      break;
+    case 5:
+      // move down again
+      leds[XY(1,1)] = leds[XY(1,3)];
+      leds[XY(2,1)] = leds[XY(2,3)];
+
+      leds[XY(0,7)] = this->tmp;
+      leds[XY(1,7)] = this->tmp;
+      leds[XY(2,7)] = this->tmp;
+      leds[XY(3,7)] = this->tmp;
+
+      leds[XY(0,6)] = this->tmp;
+      leds[XY(1,6)] = this->tmp;
+      leds[XY(2,6)] = this->tmp;
+      leds[XY(3,6)] = this->tmp;
+
+      leds[XY(0,5)] = this->tmp;
+      leds[XY(1,5)] = this->tmp;
+      leds[XY(2,5)] = this->tmp;
+      leds[XY(3,5)] = this->tmp;
+
+      leds[XY(0,4)] = this->tmp;
+      leds[XY(1,4)] = this->tmp;
+      leds[XY(2,4)] = this->tmp;
+      leds[XY(3,4)] = this->tmp;
+
+      leds[XY(0,3)] = this->tmp;
+      leds[XY(1,3)] = this->tmp;
+      leds[XY(2,3)] = this->tmp;
+      leds[XY(3,3)] = this->tmp;
+
+      leds[XY(0,2)] = this->tmp;
+      leds[XY(3,2)] = this->tmp;
+
+      leds[XY(0,1)] = this->tmp;
+      leds[XY(3,1)] = this->tmp;
+
+      leds[XY(0,0)] = this->tmp;
+      leds[XY(3,0)] = this->tmp;
+      break;
+    case 6:
+      // move down again
+      leds[XY(1,0)] = leds[XY(1,2)];
+      leds[XY(2,0)] = leds[XY(2,2)];
+
+      leds[XY(0,7)] = this->tmp;
+      leds[XY(1,7)] = this->tmp;
+      leds[XY(2,7)] = this->tmp;
+      leds[XY(3,7)] = this->tmp;
+
+      leds[XY(0,6)] = this->tmp;
+      leds[XY(1,6)] = this->tmp;
+      leds[XY(2,6)] = this->tmp;
+      leds[XY(3,6)] = this->tmp;
+
+      leds[XY(0,5)] = this->tmp;
+      leds[XY(1,5)] = this->tmp;
+      leds[XY(2,5)] = this->tmp;
+      leds[XY(3,5)] = this->tmp;
+
+      leds[XY(0,4)] = this->tmp;
+      leds[XY(1,4)] = this->tmp;
+      leds[XY(2,4)] = this->tmp;
+      leds[XY(3,4)] = this->tmp;
+
+      leds[XY(0,3)] = this->tmp;
+      leds[XY(1,3)] = this->tmp;
+      leds[XY(2,3)] = this->tmp;
+      leds[XY(3,3)] = this->tmp;
+
+      leds[XY(0,2)] = this->tmp;
+      leds[XY(1,2)] = this->tmp;
+      leds[XY(2,2)] = this->tmp;
+      leds[XY(3,2)] = this->tmp;
+
+      leds[XY(0,1)] = this->tmp;
+      leds[XY(3,1)] = this->tmp;
+
+      leds[XY(0,0)] = this->tmp;
+      leds[XY(3,0)] = this->tmp;
+      break;
+    case 7:
+      fill_solid( this->leds, NUL_LEDS, this->tmp);
+      break;
+  }
+}
+
+void PickerReset() {
+  this->TotalSteps = 8;
+}
+
+// push out old color
+void PickerResetUpdate() {
+  // draw black pixel in center, expanding outward
+}
+
+void PickerPulse() {
+  this->TotalSteps = 20;
+}
+
+// fade entire display from bright to dim
+void PickerPulseUpdate() {
 }
 
 void PickerConfirm() {

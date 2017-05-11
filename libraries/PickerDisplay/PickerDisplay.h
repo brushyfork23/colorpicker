@@ -1,5 +1,5 @@
 /**
-Runs animation of an Adafruit NeoPixel FeatherWing
+Runs animation on an Adafruit NeoPixel FeatherWing
 
 
 */
@@ -45,7 +45,7 @@ const bool    kMatrixSerpentineLayout = true;
 #define NUM_LEDS (kMatrixWidth * kMatrixHeight)
 #define BRIGHTNESS 32
 
-// Animation types supported:
+// Available animations
 enum animation {
 	NONE,
     BLACK,
