@@ -3,11 +3,15 @@ Runs animation on an Adafruit NeoPixel FeatherWing
 
 
 */
-#ifndef Picker_Display_h
-#define Picker_Display_h
+#ifndef PickerDisplay_h
+#define PickerDisplay_h
 
+#include <Arduino.h>
 #include <FastLED.h>
 #include <Metro.h>
+#include <Streaming.h>
+
+#define PIN_DATA 3 // Pin connected to Adafruit NeoPixel FeatherWing
 
 const uint8_t kMatrixWidth = 4;
 const uint8_t kMatrixHeight = 8;
@@ -57,12 +61,11 @@ enum animation {
 	PICKER_CONFIRM
 };
 
-
 class PickerDisplay {
 
 	public:
 		// initialize led strips
-	    void begin(byte pin);
+	    void begin();
 	    // which calls the following functions with their defaults:
 	    // set frames per second
 	    void setFPS(uint16_t framesPerSecond=30);
@@ -79,35 +82,44 @@ class PickerDisplay {
     	void queueAnimation(animation anim);
 
 	private:
-
-		CRGB leds_plus_safety_pixel[ NUM_LEDS + 1];
-		CRGB* const leds( leds_plus_safety_pixel + 1);
-
-	    animation ActiveAnimation;  // which animation is running
+	    animation ActivePattern;  // which animation is running
     
     	Metro pushNextFrame;
 
     	animation queue;
 
+    	void Increment();
+
+    	void Black();
         void Solid();
 		void SolidUpdate();
+    	void PickerPreviewInit();
 		void PickerPreviewInitUpdate();
+		void PickerReset();
 		void PickerResetUpdate();
+		void PickerPulse();
 		void PickerPulseUpdate();
+		void PickerPulseSingle();
 		void PickerPulseSingleUpdate();
+		void PickerConfirm();
 		void PickerConfirmUpdate();
 		void OnComplete();
     
+    	uint16_t XY( uint8_t x, uint8_t y);
+    	uint16_t XYsafe( uint8_t x, uint8_t y);
+
     	uint16_t TotalSteps;  // total number of steps in the pattern
     	uint16_t Index;  // current step within the pattern
     	CRGB color;
 
     	// animation helper vars
-    	uint8_t randCounter;
     	uint8_t actor1Index;
     	uint8_t actor2Index;
+    	uint8_t randCounter;
     	CRGB tmpCRGB;
     
 };
+
+extern PickerDisplay Display;
 
 #endif

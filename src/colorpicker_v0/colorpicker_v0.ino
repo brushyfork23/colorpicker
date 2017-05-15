@@ -87,10 +87,9 @@ Bounce Button = Bounce();
 #define SENSOR_LED_PIN 13
 
 // NeoPixel FeatherWing
-#include "Picker_Display.h"
+#include "PickerDisplay.h"
 #define DISPLAY_PIN 15
 #define BRIGHTNESS 84
-PickerDisplay Display;
 
 #define RESET_TIMEOUT_MILIS 5000 // duration of reset timeout, in miliseconds
 #define CONFRIM_COUNTDOWN_MILIS 500 // duration of confirmation countdown timer, in miliseconds
@@ -135,6 +134,7 @@ void setup() {
   Display.begin(DISPLAY_PIN);
   while(!Display);
   Display.setBrightness(BRIGHTNESS);
+  Display.setFPS(30);
 
   // start RGB sensor
   Sensor.begin(SENSOR_LED_PIN);
