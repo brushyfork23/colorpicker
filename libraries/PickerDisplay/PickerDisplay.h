@@ -11,41 +11,10 @@ Runs animation on an Adafruit NeoPixel FeatherWing
 #include <Metro.h>
 #include <Streaming.h>
 
-#define PIN_DATA 3 // Pin connected to Adafruit NeoPixel FeatherWing
+#define PIN_DATA 15 // Pin connected to Adafruit NeoPixel FeatherWing
 
 const uint8_t kMatrixWidth = 4;
 const uint8_t kMatrixHeight = 8;
-const bool    kMatrixSerpentineLayout = true;
-// Set 'kMatrixSerpentineLayout' to false if your pixels are 
-// laid out all running the same way, like this:
-//
-//     0 >  1 >  2 >  3 >  4
-//                         |
-//     .----<----<----<----'
-//     |
-//     5 >  6 >  7 >  8 >  9
-//                         |
-//     .----<----<----<----'
-//     |
-//    10 > 11 > 12 > 13 > 14
-//                         |
-//     .----<----<----<----'
-//     |
-//    15 > 16 > 17 > 18 > 19
-//
-// Set 'kMatrixSerpentineLayout' to true if your pixels are 
-// laid out back-and-forth, like this:
-//
-//     0 >  1 >  2 >  3 >  4
-//                         |
-//                         |
-//     9 <  8 <  7 <  6 <  5
-//     |
-//     |
-//    10 > 11 > 12 > 13 > 14
-//                        |
-//                        |
-//    19 < 18 < 17 < 16 < 15
 #define NUM_LEDS (kMatrixWidth * kMatrixHeight)
 #define BRIGHTNESS 32
 

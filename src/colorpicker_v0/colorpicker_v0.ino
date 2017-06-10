@@ -27,16 +27,27 @@
 */
 
 
+#include <Metro.h>
+
+// SPST Pushbutton
+#include <Bounce2.h>
+#define BUTTON_PIN 12
+Bounce Button = Bounce();
+
+// TCS45725 RGB Sensor
+#include "Adafruit_TCS34725.h"
+#define SENSOR_LED_PIN 13
 // may want to replace this with interrupt logic instead of metronome?
 class RGBSensor {
 public:
   // initialize sensor in satndby state, setting led pin and metronome interval
-  RGBSensor(int ledPin, unsigned long intervalMillis)
+  RGBSensor(int ledPin);
+  void begin(unsigned long intervalMillis);
   void enable();
   void disable();
   void update();
   bool isColor(); // returns true if the last reading was interesting; not black or white
-  uint32_t color(); // return the color code of the last reading
+  uint32_t getColor();
 private:
   Adafruit_TCS34725 tcs;
   Metro readingTimer;
@@ -44,16 +55,18 @@ private:
   int ledPin;
   uint32_t color; // last committed color code
 };
-RGBSensor::RGBSensor(int ledPin, unsigned long intervalMillis) {
+RGBSensor::RGBSensor(int ledPin) {
   this->enabled = false;
   this->ledPin = ledPin;
   pinMode(this->ledPin, OUTPUT);
-  this->readingTimer.interval( intervalMillis );
   this->tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_4X);
+}
+void RGBSensor::begin(unsigned long intervalMillis) {
+  this->readingTimer.interval( intervalMillis );
 }
 void RGBSensor::enable(){
   this->enabled = true;
-  readingTimer.reset()
+  readingTimer.reset();
   digitalWrite(this->ledPin, HIGH);
 }
 void RGBSensor::disable() {
@@ -71,24 +84,14 @@ bool RGBSensor::isColor() {
 
   }
 }
-uint32_t RGBSensor::color() {
+uint32_t RGBSensor::getColor() {
   return this->color;
 }
+RGBSensor Sensor = RGBSensor(SENSOR_LED_PIN);
 
-
-
-// SPST Pushbutton
-#include <Bounce2.h>
-#define BUTTON_PIN 12
-Bounce Button = Bounce();
-
-// TCS45725 RGB Sensor
-#include "Adafruit_TCS34725.h"
-#define SENSOR_LED_PIN 13
 
 // NeoPixel FeatherWing
 #include "PickerDisplay.h"
-#define DISPLAY_PIN 15
 #define BRIGHTNESS 84
 
 #define RESET_TIMEOUT_MILIS 5000 // duration of reset timeout, in miliseconds
@@ -103,20 +106,19 @@ Metro confirmCountdownTimer; // A debouncer for confirmation clicks.
 //http://www.arduino.cc/playground/uploads/Code/FSM_1-6.zip
 #include <FiniteStateMachine.h>
 // define state machine
+void readyEnter();
+void readyUpdate();
 State ready = State(readyEnter, readyUpdate, NULL);
-State previewStreaming = State(previewStreamingEnter, streamingUpdate, NULL);
+void previewStreamingEnter();
+void previewStreamingUpdate();
+State previewStreaming = State(previewStreamingEnter, previewStreamingUpdate, NULL);
+void previewCountdownEnter();
+void previewCountdownUpdate();
 State previewCountdown = State(previewCountdownEnter, previewCountdownUpdate, NULL);
-FSM picker = FSM(ready)
+FSM picker = FSM(ready);
 
-bool
-  buttonReleased;
-
-uint8_t
-  buttonPresses;
-
-uint32_t 
-  color,
-  previewColor;
+uint32_t color, previewColor;
+uint8_t confirmationPresses;
 
 void setup() {
   Serial.begin(115200);
@@ -127,29 +129,29 @@ void setup() {
   Button.interval(5); // interval in ms
 
   // set duration of reset and confirm countdown timers
-  resetTimeout.interval(RESET_TIMEOUT_MILIS);
+  resetTimer.interval(RESET_TIMEOUT_MILIS);
   confirmCountdownTimer.interval(CONFRIM_COUNTDOWN_MILIS);
 
   // start neopixels
-  Display.begin(DISPLAY_PIN);
-  while(!Display);
+  Display.begin();
+  //while(!Display);
   Display.setBrightness(BRIGHTNESS);
-  Display.setFPS(30);
+  Display.setFPS(32);
 
   // start RGB sensor
   Sensor.begin(SENSOR_LED_PIN);
-  while(!Sensor);
+  //while(!Sensor);
 
   // start wifi
-  Network.begin();
-  while(!Network);
+  //Network.begin();
+  //while(!Network);
 }
 
 void loop() {
   Button.update();
   Display.update();
   Sensor.update();
-  Network.update();
+  //Network.update();
   picker.update();
 }
 
@@ -168,18 +170,18 @@ void readyEnter() {
 // continue to pulse until button is pressed and sensor detects a color
 void readyUpdate() {
   // toggle sensor when button is pressed or released
-  if ( Button.fell() ) {
-    Sensor.disable();
-  } else if ( Button.rose() ) {
+  if ( Button.rose() ) {
     Sensor.enable();
+  } else if ( Button.fell() ) {
+    Sensor.disable();
   }
 
   // has a new color been scanned?
-  if ( Sensor.isColor() && Sensor.color() != this->color) {
-    this->previewColor = Sensor.color();
+  if ( Sensor.isColor() && Sensor.getColor() != color) {
+    previewColor = Sensor.getColor();
     Display.setAnimation(PICKER_PREVIEW_INIT);
-    Display.setColor(this->previewColor);
-    picker.transitionTo(streaming);
+    Display.setColor(previewColor);
+    picker.transitionTo(previewStreaming);
   }
 }
 
@@ -199,9 +201,9 @@ void previewStreamingUpdate() {
   }
 
   // update color if new one is scanned
-  if ( Sensor.isColor() && Sensor.color() != this->previewColor) {
-    this->previewColor = Sensor.color();
-    Display.setColor(this->previewColor);
+  if ( Sensor.isColor() && Sensor.getColor() != previewColor) {
+    previewColor = Sensor.getColor();
+    Display.setColor(previewColor);
   }
 }
 
@@ -224,9 +226,9 @@ void previewCountdownUpdate() {
     confirmationPresses++;
     if ( confirmationPresses >= CONFIRMATION_PRESSES ) {
       // There have been enough presses; confirm color
-      this->color = this->previewColor;
+      color = previewColor;
       Display.setAnimation(PICKER_CONFIRM);
-      Network.publishColor(this->color);
+      //Network.publishColor(color);
     } else {
       // There are still more presses required; reset confirmation timeout
       confirmCountdownTimer.reset();
@@ -240,7 +242,7 @@ void previewCountdownUpdate() {
 
   // check time elapsed on the confirmation timer since the last button change
   if ( confirmCountdownTimer.check() ) {
-    if ( Button.check() == LOW ) {
+    if ( Button.read() == LOW ) {
       // Button has been held for long enough, go back to preview streaming
       picker.transitionTo(previewStreaming);
     } else if ( confirmationPresses > 0 ) {
@@ -254,5 +256,4 @@ void previewCountdownUpdate() {
     Display.setAnimation(PICKER_RESET);
     picker.transitionTo(ready);
   }
-}
 }

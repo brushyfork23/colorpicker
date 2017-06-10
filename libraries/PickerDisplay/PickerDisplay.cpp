@@ -160,6 +160,7 @@ void PickerDisplay::SolidUpdate() {
 }
 
 void PickerDisplay::PickerPulseSingle() {
+  fill_solid( leds, NUM_LEDS, 0);
   this->TotalSteps = 32;
   this->actor1Index = 0;
   this->actor2Index = 0;
@@ -169,7 +170,7 @@ void PickerDisplay::PickerPulseSingle() {
 // first 3/4: fade in first actor, while fading out the second (previous) actor
 // last 1/4: begin fading first actor out
 void PickerDisplay::PickerPulseSingleUpdate() {
-  // every new cycle, choose a new random actor between 2,3 and 3,4
+  // every new cycle, choose a new random actor between 1,3 and 2,4
   if ( this->Index == 0) {
     this->actor2Index = this->actor1Index;
 
@@ -177,7 +178,7 @@ void PickerDisplay::PickerPulseSingleUpdate() {
     uint16_t newAddr;
     do {
       uint8_t x =  1 + random8(2);
-      uint8_t y =  2 + random8(2);
+      uint8_t y =  3 + random8(2);
       Serial << F("[animPickerPulse] chosing new actor: x=") << x << F(" y=") << y << endl;
       newAddr = this->XY(x, y);
     } while (this->actor1Index == newAddr);
@@ -510,24 +511,7 @@ void PickerDisplay::PickerConfirmUpdate() {
 //
 uint16_t PickerDisplay::XY( uint8_t x, uint8_t y)
 {
-  uint16_t i;
-  
-  if( kMatrixSerpentineLayout == false) {
-    i = (y * kMatrixWidth) + x;
-  }
-
-  if( kMatrixSerpentineLayout == true) {
-    if( y & 0x01) {
-      // Odd rows run backwards
-      uint8_t reverseX = (kMatrixWidth - 1) - x;
-      i = (y * kMatrixWidth) + reverseX;
-    } else {
-      // Even rows run forwards
-      i = (y * kMatrixWidth) + x;
-    }
-  }
-  
-  return i;
+  return (x * kMatrixHeight) + y;
 }
 
 uint16_t PickerDisplay::XYsafe( uint8_t x, uint8_t y)
