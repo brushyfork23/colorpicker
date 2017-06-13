@@ -49,6 +49,37 @@ void PickerDisplay::queueAnimation(animation anim) {
 }
 
 void PickerDisplay::setAnimation(animation anim, bool clearQueue) {
+  Serial << F("set animation=");
+  switch (anim) {
+      case NONE:
+        Serial << F("None");
+        break;
+    case BLACK:
+      Serial << F("Black");
+      break;
+    case SOLID:
+      Serial << F("Solid");
+      break;
+    case PICKER_PREVIEW_INIT:
+      Serial << F("Picker Preview Init");
+      break;
+    case PICKER_RESET:
+      Serial << F("Picker Reset");
+      break;
+    case PICKER_PULSE:
+      Serial << F("Picker Pulse");
+      break;
+    case PICKER_PULSE_SINGLE:
+      Serial << F("Picker Pulse Single");
+      break;
+    case PICKER_CONFIRM:
+      Serial << F("Picker Confirm");
+      break;
+    default:
+      Serial << F("UNDEFINED");
+  }
+  Serial << endl;
+
   this->ActivePattern = anim;
   this->Index = 0;
   if ( clearQueue ) {
@@ -80,7 +111,9 @@ void PickerDisplay::setAnimation(animation anim, bool clearQueue) {
       this->TotalSteps = 0;
       break;
   }
-  Serial << F("animation set=") << this->ActivePattern << endl;
+  // Show now, otherwise none of the initializations will be
+  // displayed, and will be overwritten by the next frame.
+  FastLED.show();
 }
 
 // Change to the next animation in the queue
@@ -138,12 +171,14 @@ void PickerDisplay::Increment()
 **/
 
 void PickerDisplay::Black() {
-    fill_solid( leds, NUM_LEDS, CRGB::Black);
-    // TotalSteps must be set to 0 so that when queue() is called next it will instantly transition
-    this->TotalSteps = 0;
+  this->setFPS();
+  fill_solid( leds, NUM_LEDS, CRGB::Black);
+  // TotalSteps must be set to 0 so that when queue() is called next it will instantly transition
+  this->TotalSteps = 0;
 }
 
 void PickerDisplay::Solid() {
+  this->setFPS();
   fill_solid( leds, NUM_LEDS, this->color);
   // save color to tmp so changes can be detected and we don't have to write every update loop iteration
   this->tmpCRGB = this->color;
@@ -160,6 +195,7 @@ void PickerDisplay::SolidUpdate() {
 }
 
 void PickerDisplay::PickerPulseSingle() {
+  this->setFPS();
   fill_solid( leds, NUM_LEDS, 0);
   this->TotalSteps = 32;
   this->actor1Index = 0;
@@ -179,11 +215,11 @@ void PickerDisplay::PickerPulseSingleUpdate() {
     do {
       uint8_t x =  1 + random8(2);
       uint8_t y =  3 + random8(2);
-      Serial << F("[animPickerPulse] chosing new actor: x=") << x << F(" y=") << y << endl;
+      //Serial << F("[animPickerPulse] chosing new actor: x=") << x << F(" y=") << y << endl;
       newAddr = this->XY(x, y);
     } while (this->actor1Index == newAddr);
     this->actor1Index = newAddr;
-    Serial << F("[animPickerPulse] moved actor1 to actor2. Now actor1=") << this->actor1Index << F(" actor2=") << this->actor2Index << endl;
+    //Serial << F("[animPickerPulse] moved actor1 to actor2. Now actor1=") << this->actor1Index << F(" actor2=") << this->actor2Index << endl;
   }
 
   // set tmp with a full-brightness target color
@@ -201,7 +237,7 @@ void PickerDisplay::PickerPulseSingleUpdate() {
     // 2/3 max brightness - (2/3 max brightness * (index/(totalsteps/2)))
     //(2/3 * 256) - (2/3 * 256 * (Index/ (totalsteps / 2)))
     uint8_t brightness = 170 - (170 * this->Index / (this->TotalSteps / 2) );
-    Serial << F("[animPickerPUlse] fading 2 out.  Index=") << this->Index << F(" brightness=") << brightness << endl;
+    //Serial << F("[animPickerPUlse] fading 2 out.  Index=") << this->Index << F(" brightness=") << brightness << endl;
     leds[this->actor2Index] = tmp.nscale8( brightness ); // 2/3 max brightness - (2/3 max brightness * (index/(totalsteps/2)))    (2/3 * 256) - (2/3 * 256 * (Index/ (totalsteps / 2)))
   }
 
@@ -210,7 +246,7 @@ void PickerDisplay::PickerPulseSingleUpdate() {
   if (this->Index < this->TotalSteps * 3 / 4) {
     CRGB tmp = this->tmpCRGB;
     uint8_t brightness = 255 * this->Index / (this->TotalSteps * 3 / 4);
-    Serial << F("[animPickerPUlse] fading 1 in.  Index=") << this->Index << F(" brightness=") << brightness << endl;
+    //Serial << F("[animPickerPUlse] fading 1 in.  Index=") << this->Index << F(" brightness=") << brightness << endl;
     leds[this->actor1Index] = tmp.nscale8_video( brightness ); // max brightness * (index / (.75 * totalsteps))
   }
 
@@ -221,12 +257,13 @@ void PickerDisplay::PickerPulseSingleUpdate() {
     // current brightness = max brightness - (percent to fade * # steps taken into segment / segment length
     // max brightness - (brightness / 3 * ( (index - ((totalsteps * .75) / (totalsteps - .75 * totalsteps)) ) )
     uint8_t brightness = 255 - 85 *  (this->Index - (this->TotalSteps * 3 / 4)) / ( this->TotalSteps - (this->TotalSteps * 3 / 4) );
-    Serial << F("[animPickerPUlse] fading 1 out.  Index=") << this->Index << F(" brightness=") << brightness << endl;
+    //Serial << F("[animPickerPUlse] fading 1 out.  Index=") << this->Index << F(" brightness=") << brightness << endl;
     leds[this->actor1Index] = tmp.nscale8( brightness ); 
   }
 }
 
 void PickerDisplay::PickerPreviewInit() {
+  this->setFPS(16);
   this->TotalSteps = 8;
 }
 
@@ -424,23 +461,25 @@ void PickerDisplay::PickerPreviewInitUpdate()
 }
 
 void PickerDisplay::PickerPulse() {
-  this->TotalSteps = 16;
-  this->tmpCRGB = this->color;
-  this->tmpCRGB.nscale8_video(16);
+  //this->setFPS(16);
+  //this->TotalSteps = 16;
+  //this->tmpCRGB = this->color;
+  //this->tmpCRGB.nscale8_video(16);
   fill_solid( leds, NUM_LEDS, this->color);
 }
 
 // fade entire display from bright to dim
 void PickerDisplay::PickerPulseUpdate() {
-  if (this->Index < 8) {
-    nscale8_video(leds, NUM_LEDS, 32);
-  } else {
-    this->tmpCRGB += this->tmpCRGB.nscale8_video(32);
-    fill_solid( leds, NUM_LEDS, this->tmpCRGB);
-  }
+  //if (this->Index < 8) {
+  //  nscale8_video(leds, NUM_LEDS, 32);
+  // } else {
+  //   this->tmpCRGB += this->tmpCRGB.nscale8_video(32);
+  //   fill_solid( leds, NUM_LEDS, this->tmpCRGB);
+  // }
 }
 
 void PickerDisplay::PickerReset() {
+  this->setFPS();
   this->TotalSteps = 8;
 }
 
@@ -450,6 +489,7 @@ void PickerDisplay::PickerResetUpdate() {
 }
 
 void PickerDisplay::PickerConfirm() {
+  this->setFPS();
   this->TotalSteps = 20;
 }
 

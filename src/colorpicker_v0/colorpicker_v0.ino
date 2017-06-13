@@ -42,7 +42,7 @@ class RGBSensor {
 public:
   // initialize sensor in satndby state, setting led pin and metronome interval
   RGBSensor(int ledPin);
-  void begin(unsigned long intervalMillis);
+  bool begin(unsigned long intervalMillis);
   void enable();
   void disable();
   void update();
@@ -61,8 +61,9 @@ RGBSensor::RGBSensor(int ledPin) {
   pinMode(this->ledPin, OUTPUT);
   this->tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_4X);
 }
-void RGBSensor::begin(unsigned long intervalMillis) {
+bool RGBSensor::begin(unsigned long intervalMillis) {
   this->readingTimer.interval( intervalMillis );
+  return this->tcs.begin();
 }
 void RGBSensor::enable(){
   this->enabled = true;
@@ -75,14 +76,27 @@ void RGBSensor::disable() {
 }
 void RGBSensor::update() {
   if (this->enabled) {
+    if (this->readingTimer.check()) {
+      this->readingTimer.reset();
+      
+      uint16_t clear, red, green, blue;
+      // actually read the sensor
+      this->tcs.getRawData(&red, &green, &blue, &clear);
 
+      // coerce the 16 bit rgb values into a 32 bit colorcode
+      this->color = (red << 8) & 0x00ff0000 |
+                    (green ) & 0x0000ff00 |
+                    (blue >> 8) & 0x000000ff;
+    }
   }
 }
 bool RGBSensor::isColor() {
   // TODO return if this->color != black or white (or anything returned when not actually touching a color)
-  if (this->enabled) {
-
+  if (this->enabled
+    && this->color > 0) {
+    return true;
   }
+  return false;
 }
 uint32_t RGBSensor::getColor() {
   return this->color;
@@ -94,11 +108,12 @@ RGBSensor Sensor = RGBSensor(SENSOR_LED_PIN);
 #include "PickerDisplay.h"
 #define BRIGHTNESS 84
 
-#define RESET_TIMEOUT_MILIS 5000 // duration of reset timeout, in miliseconds
-#define CONFRIM_COUNTDOWN_MILIS 500 // duration of confirmation countdown timer, in miliseconds
-#define CONFIRMATION_PRESSES 2 // number of button presses to confirm a color
+#define SENSOR_UPDATE_MILIS 50
+#define RESET_TIMEOUT_MILIS 3000 // duration of reset timeout, in miliseconds
+#define CONFRIM_COUNTDOWN_MILIS 300 // duration of confirmation countdown timer, in miliseconds
+#define CONFIRMATION_PRESSES 3 // number of button presses to confirm a color
 Metro resetTimer;
-Metro confirmCountdownTimer; // A debouncer for confirmation clicks.
+Metro confirmDebounceTimer; // A debouncer for confirmation clicks.
                     // It starts when the button is pressed while a preview is pulsing.
                     // If the button is released again before time expires, count it as a confirm click.
                     // Otherwise, assume this was a request to re-enable sensor and detect new colors.
@@ -130,7 +145,7 @@ void setup() {
 
   // set duration of reset and confirm countdown timers
   resetTimer.interval(RESET_TIMEOUT_MILIS);
-  confirmCountdownTimer.interval(CONFRIM_COUNTDOWN_MILIS);
+  confirmDebounceTimer.interval(CONFRIM_COUNTDOWN_MILIS);
 
   // start neopixels
   Display.begin();
@@ -139,8 +154,14 @@ void setup() {
   Display.setFPS(32);
 
   // start RGB sensor
-  Sensor.begin(SENSOR_LED_PIN);
-  //while(!Sensor);
+  if (Sensor.begin(60)) {
+    Serial << F("Initialized TCS RGB sensor");
+  } else {
+    Serial.println("No TCS34725 found ... check your connections");
+    Display.setColor(0x00FF0000);
+    Display.setAnimation(SOLID);
+    while (1); // halt!
+  }
 
   // start wifi
   //Network.begin();
@@ -163,6 +184,7 @@ void loop() {
 ///[ready state:enter]
 // fade in and out a sinlge pixel, rainbow if this->color == 0
 void readyEnter() {
+  Serial << F("[state] ready") << endl;
   Display.queueAnimation(PICKER_PULSE_SINGLE);
 }
 
@@ -170,17 +192,18 @@ void readyEnter() {
 // continue to pulse until button is pressed and sensor detects a color
 void readyUpdate() {
   // toggle sensor when button is pressed or released
-  if ( Button.rose() ) {
+  if ( Button.fell() ) {
     Sensor.enable();
-  } else if ( Button.fell() ) {
+  } else if ( Button.rose() ) {
     Sensor.disable();
   }
 
   // has a new color been scanned?
   if ( Sensor.isColor() && Sensor.getColor() != color) {
+    Serial << F("detected color: ") << Sensor.getColor() << endl;
     previewColor = Sensor.getColor();
-    Display.setAnimation(PICKER_PREVIEW_INIT);
     Display.setColor(previewColor);
+    Display.setAnimation(PICKER_PREVIEW_INIT);
     picker.transitionTo(previewStreaming);
   }
 }
@@ -188,7 +211,7 @@ void readyUpdate() {
 ///[previewStreaming state:enter]
 // transition display to showing full bright whatever color is scanned
 void previewStreamingEnter() {
-  Sensor.enable();
+  Serial << F("[state] previewStreaming") << endl;
   Display.queueAnimation(SOLID);
 }
 ///[previewStreaming state:update]
@@ -210,9 +233,11 @@ void previewStreamingUpdate() {
 ///[previewCountdown state:enter]
 // set display to pulse the preview color, and start a countdown
 void previewCountdownEnter() {
+  Serial << F("[state] previewCountdown") << endl;
+  Display.setColor(previewColor);
   Display.setAnimation(PICKER_PULSE);
   resetTimer.reset();
-  confirmCountdownTimer.reset();
+  confirmDebounceTimer.reset();
   confirmationPresses = 0;
 }
 
@@ -223,37 +248,44 @@ void previewCountdownEnter() {
 void previewCountdownUpdate() {
   // When button is released, increase count of presses and check if this is enough to confirm
   if ( Button.rose() ) {
+    // button was released before debounce timer expired.
+    // The last press was meant to be a confirmation
     confirmationPresses++;
+    Serial << F("last press was a confirmation.  Confirmation count: ") << confirmationPresses << endl;
     if ( confirmationPresses >= CONFIRMATION_PRESSES ) {
+      Serial << F("Confirmed! Setting new color.") << endl;
       // There have been enough presses; confirm color
       color = previewColor;
+      Display.setColor(color);
       Display.setAnimation(PICKER_CONFIRM);
       //Network.publishColor(color);
     } else {
-      // There are still more presses required; reset confirmation timeout
-      confirmCountdownTimer.reset();
+      // There are still more presses required; reset reset timer
+      resetTimer.reset();
     }
   }
 
   // When button is pressed, reset confirmation debounce timer
   if ( Button.fell() ){
-    confirmCountdownTimer.reset();
+    Serial << F("button pressed; is this a confirmation press, or should we go back to streaming?") << endl;
+    confirmDebounceTimer.reset();
   }
 
-  // check time elapsed on the confirmation timer since the last button change
-  if ( confirmCountdownTimer.check() ) {
-    if ( Button.read() == LOW ) {
+
+  if ( Button.read() == LOW ) {
+    // check time elapsed on the confirmation timer since the last button change
+    if (confirmDebounceTimer.check()) {
       // Button has been held for long enough, go back to preview streaming
+      Serial << F("confirmation debounce timer expired") << endl;
       picker.transitionTo(previewStreaming);
-    } else if ( confirmationPresses > 0 ) {
-      // Too much time has passed between confirmation clicks; reset confirmation press counter
-      confirmationPresses = 0;
     }
-  }
-
-  // if color was not confirmed in time, reset
-  if ( resetTimer.check() ) {
-    Display.setAnimation(PICKER_RESET);
-    picker.transitionTo(ready);
+  } else {
+    // if color was not confirmed in time, reset
+    if ( resetTimer.check() ) {
+      Serial << F("not confirmed in time; resetting") << endl;
+      Display.setColor(color);
+      Display.setAnimation(PICKER_RESET);
+      picker.transitionTo(ready);
+    }
   }
 }
