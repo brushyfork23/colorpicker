@@ -42,7 +42,7 @@ class PickerDisplay {
 	    void setBrightness(byte brightness=BRIGHTNESS);
 	    // set the random seed for animation
     	void startSeed(uint16_t seed = 1337);
-    	void setColor(uint32_t color);
+    	void setColor(CRGB color);
     	// runs the animation; transitions to next 
     	void update();
     	// immediately change the current animation

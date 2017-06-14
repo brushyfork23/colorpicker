@@ -34,9 +34,9 @@ void PickerDisplay::startSeed(uint16_t seed) {
   random16_set_seed( seed );  // FastLED/lib8tion
   Serial << F("random seed=") << seed << endl;
 }
-void PickerDisplay::setColor(uint32_t color) {
-  this->color = CRGB(color);
-  Serial << F("color set=") << color << endl;
+void PickerDisplay::setColor(CRGB color) {
+  this->color = color;
+  Serial << F("color set= R: ") << color.r << F("\tG: ") << color.g << F("\tB: ") << color.b << endl;
 }
 void PickerDisplay::queueAnimation(animation anim) {
   if ( this->TotalSteps == 0 ) {
@@ -480,7 +480,7 @@ void PickerDisplay::PickerPulseUpdate() {
 
 void PickerDisplay::PickerReset() {
   this->setFPS();
-  this->TotalSteps = 8;
+  this->TotalSteps = 2;
 }
 
 // push out old color
@@ -490,7 +490,7 @@ void PickerDisplay::PickerResetUpdate() {
 
 void PickerDisplay::PickerConfirm() {
   this->setFPS();
-  this->TotalSteps = 20;
+  this->TotalSteps = 2;
 }
 
 // do a sweet confimation animation.  Make it super cool and poofy

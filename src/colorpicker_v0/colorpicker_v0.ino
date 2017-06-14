@@ -28,6 +28,8 @@
 
 
 #include <Metro.h>
+#include <Streaming.h>
+#include <FastLED.h>
 
 // SPST Pushbutton
 #include <Bounce2.h>
@@ -47,13 +49,13 @@ public:
   void disable();
   void update();
   bool isColor(); // returns true if the last reading was interesting; not black or white
-  uint32_t getColor();
+  CRGB getColor();
 private:
   Adafruit_TCS34725 tcs;
   Metro readingTimer;
   bool enabled;
   int ledPin;
-  uint32_t color; // last committed color code
+  CRGB color; // last committed color code
 };
 RGBSensor::RGBSensor(int ledPin) {
   this->enabled = false;
@@ -83,22 +85,29 @@ void RGBSensor::update() {
       // actually read the sensor
       this->tcs.getRawData(&red, &green, &blue, &clear);
 
-      // coerce the 16 bit rgb values into a 32 bit colorcode
-      this->color = (red << 8) & 0x00ff0000 |
-                    (green ) & 0x0000ff00 |
-                    (blue >> 8) & 0x000000ff;
+      uint32_t sum = clear;
+      float r, g, b;
+      r = red; r /= sum;
+      g = green; g /= sum;
+      b = blue; b /= sum;
+      r *= 256; g *= 256; b *= 256;
+
+      this->color = CRGB(r, g, b);
+
+      //Serial << F("TCS read: R:\t") << this->color.r << F("\tG:\t") << this->color.g << F("\tB:\t") << this->color.b << endl;
     }
   }
 }
 bool RGBSensor::isColor() {
   // TODO return if this->color != black or white (or anything returned when not actually touching a color)
   if (this->enabled
-    && this->color > 0) {
+  //  && this->color > 0
+  ) {
     return true;
   }
   return false;
 }
-uint32_t RGBSensor::getColor() {
+CRGB RGBSensor::getColor() {
   return this->color;
 }
 RGBSensor Sensor = RGBSensor(SENSOR_LED_PIN);
@@ -109,9 +118,9 @@ RGBSensor Sensor = RGBSensor(SENSOR_LED_PIN);
 #define BRIGHTNESS 84
 
 #define SENSOR_UPDATE_MILIS 50
-#define RESET_TIMEOUT_MILIS 3000 // duration of reset timeout, in miliseconds
+#define RESET_TIMEOUT_MILIS 2000 // duration of reset timeout, in miliseconds
 #define CONFRIM_COUNTDOWN_MILIS 300 // duration of confirmation countdown timer, in miliseconds
-#define CONFIRMATION_PRESSES 3 // number of button presses to confirm a color
+#define CONFIRMATION_PRESSES 2 // number of button presses to confirm a color
 Metro resetTimer;
 Metro confirmDebounceTimer; // A debouncer for confirmation clicks.
                     // It starts when the button is pressed while a preview is pulsing.
@@ -132,7 +141,7 @@ void previewCountdownUpdate();
 State previewCountdown = State(previewCountdownEnter, previewCountdownUpdate, NULL);
 FSM picker = FSM(ready);
 
-uint32_t color, previewColor;
+CRGB color, previewColor;
 uint8_t confirmationPresses;
 
 void setup() {
@@ -158,7 +167,7 @@ void setup() {
     Serial << F("Initialized TCS RGB sensor");
   } else {
     Serial.println("No TCS34725 found ... check your connections");
-    Display.setColor(0x00FF0000);
+    Display.setColor(CRGB(0));
     Display.setAnimation(SOLID);
     while (1); // halt!
   }
@@ -212,6 +221,7 @@ void readyUpdate() {
 // transition display to showing full bright whatever color is scanned
 void previewStreamingEnter() {
   Serial << F("[state] previewStreaming") << endl;
+  Sensor.enable();
   Display.queueAnimation(SOLID);
 }
 ///[previewStreaming state:update]
