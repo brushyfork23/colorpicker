@@ -1,5 +1,30 @@
 /*
 
+TODO:
+
+Make a calibration mode.  When the system first boots (if color is still unset)
+allow some button press sequence to initialize a scanning mode which takes
+average rgb readings until released.  Then, give those values a little padding
+and use them in isColor() like this:
+
+!(abs(175 - this->color.r) < 20
+  && abs(71 - this->color.g) < 20
+  && abs(55 - this->color.b) < 20
+)
+
+*/
+
+
+
+
+
+
+
+
+
+
+/*
+
     ------->  ready  <----------   confirm <------------------------------------
    |            v                                                               |
  reset    (color sensed)                                                        |
@@ -102,6 +127,11 @@ bool RGBSensor::isColor() {
   // TODO return if this->color != black or white (or anything returned when not actually touching a color)
   if (this->enabled
   //  && this->color > 0
+    && !( // rgb 175, 71, 55 was the average color I got for "white", or "no color", when testing this around my apartment.
+      abs(175 - this->color.r) < 20
+      && abs(71 - this->color.g) < 20
+      && abs(55 - this->color.b) < 20
+    )
   ) {
     return true;
   }
@@ -119,7 +149,7 @@ RGBSensor Sensor = RGBSensor(SENSOR_LED_PIN);
 
 #define SENSOR_UPDATE_MILIS 50
 #define RESET_TIMEOUT_MILIS 2000 // duration of reset timeout, in miliseconds
-#define CONFRIM_COUNTDOWN_MILIS 300 // duration of confirmation countdown timer, in miliseconds
+#define CONFRIM_COUNTDOWN_MILIS 200 // duration of confirmation countdown timer, in miliseconds
 #define CONFIRMATION_PRESSES 2 // number of button presses to confirm a color
 Metro resetTimer;
 Metro confirmDebounceTimer; // A debouncer for confirmation clicks.
@@ -299,3 +329,7 @@ void previewCountdownUpdate() {
     }
   }
 }
+
+
+
+
