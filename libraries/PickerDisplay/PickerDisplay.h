@@ -27,7 +27,7 @@ enum animation {
 	PICKER_RESET,
 	PICKER_PULSE,
 	PICKER_PULSE_SINGLE,
-	PICKER_CONFIRM
+	PICKER_CONFIRM,CASCADE
 };
 
 class PickerDisplay {
@@ -57,11 +57,13 @@ class PickerDisplay {
 
     	animation queue;
 
-    	void Increment();
+		void Increment();
 
     	void Black();
         void Solid();
 		void SolidUpdate();
+		void Cascade();
+		void CascadeUpdate();
     	void PickerPreviewInit();
 		void PickerPreviewInitUpdate();
 		void PickerReset();

@@ -60,6 +60,9 @@ void PickerDisplay::setAnimation(animation anim, bool clearQueue) {
     case SOLID:
       Serial << F("Solid");
       break;
+    case CASCADE:
+      Serial << F("Cascade");
+      break;
     case PICKER_PREVIEW_INIT:
       Serial << F("Picker Preview Init");
       break;
@@ -91,6 +94,9 @@ void PickerDisplay::setAnimation(animation anim, bool clearQueue) {
       break;
     case SOLID:
       this->Solid();
+      break;
+    case CASCADE:
+      this->Cascade();
       break;
     case PICKER_PREVIEW_INIT:
       this->PickerPreviewInit();
@@ -131,6 +137,8 @@ void PickerDisplay::update()
       case SOLID:
         this->SolidUpdate();
         break;
+      case CASCADE:
+        this->CascadeUpdate();
       case PICKER_PREVIEW_INIT:
         this->PickerPreviewInitUpdate();
         break;
@@ -165,7 +173,6 @@ void PickerDisplay::Increment()
     }
 }
 
-
 /**
   ANIMATIONS
 **/
@@ -191,6 +198,28 @@ void PickerDisplay::SolidUpdate() {
   if (this->tmpCHSV != this->color) {
     this->tmpCHSV = this->color;
     fill_solid( leds, NUM_LEDS, this->color);
+  }
+}
+
+void PickerDisplay::Cascade() {
+  this->setFPS();
+  // fill it top row with new color
+  for (uint8_t x = 0; x < 4; x++) {
+    leds[this->XY(x, 7)] = this->color;
+  }
+}
+
+void PickerDisplay::CascadeUpdate() {
+  // drop all rows down 1
+  for (uint8_t row = 0; row < 7; row++) {
+    for (uint8_t x = 0; x < 4; x++) {
+      leds[this->XY(x, row)] = leds[this->XY(x, row+1)];
+    }
+  }
+
+  // fill it top row with new color
+  for (uint8_t x = 0; x < 4; x++) {
+    leds[this->XY(x, 7)] = this->color;
   }
 }
 
@@ -261,200 +290,60 @@ void PickerDisplay::PickerPulseSingleUpdate() {
 }
 
 void PickerDisplay::PickerPreviewInit() {
-  this->setFPS(16);
-  this->TotalSteps = 8;
+  this->setFPS();
+  this->TotalSteps = 10;
 }
 
 // over the course of 8 steps, fill in the display with the new color.
 void PickerDisplay::PickerPreviewInitUpdate()
 {
   // draw the next frame
+
   switch (this->Index) {
     case 0:
-      leds[this->XY(0,7)] = this->color;
-      leds[this->XY(1,7)] = this->color;
-      leds[this->XY(2,7)] = this->color;
-      leds[this->XY(3,7)] = this->color;
-
-      leds[this->XY(0,6)] = this->color;
-      leds[this->XY(3,6)] = this->color;
+      // light a random top middle pixel
+      leds[this->XY(1 + random8(2), 7)] = this->color;
       break;
     case 1:
-      leds[this->XY(0,7)] = this->color;
-      leds[this->XY(1,7)] = this->color;
-      leds[this->XY(2,7)] = this->color;
-      leds[this->XY(3,7)] = this->color;
+      // move top middle pixels down
+      leds[this->XY(1, 6)] = leds[this->XY(1, 7)];
+      leds[this->XY(2, 6)] = leds[this->XY(2, 7)];
 
-      leds[this->XY(0,6)] = this->color;
-      leds[this->XY(1,6)] = this->color;
-      leds[this->XY(2,6)] = this->color;
-      leds[this->XY(3,6)] = this->color;
-
-      leds[this->XY(0,5)] = this->color;
-      leds[this->XY(3,5)] = this->color;
+      // light both middle pixels
+      leds[this->XY(1, 7)] = this->color;
+      leds[this->XY(2, 7)] = this->color;
       break;
     case 2:
-      leds[this->XY(0,7)] = this->color;
-      leds[this->XY(1,7)] = this->color;
-      leds[this->XY(2,7)] = this->color;
-      leds[this->XY(3,7)] = this->color;
+      // move top two rows down
+      for (uint8_t row = 6; row <= 7; row++) {
+        for (uint8_t x = 0; x < 4; x++) {
+          leds[this->XY(x, row-1)] = leds[this->XY(x, row)];
+        }
+      }
 
-      leds[this->XY(0,6)] = this->color;
-      leds[this->XY(1,6)] = this->color;
-      leds[this->XY(2,6)] = this->color;
-      leds[this->XY(3,6)] = this->color;
-
-      leds[this->XY(0,5)] = this->color;
-      leds[this->XY(3,5)] = this->color;
-
-      leds[this->XY(0,4)] = this->color;
-      leds[this->XY(3,4)] = this->color;
+      // light 3 of the top pixels (leave one of the ends unchanged)
+      uint8_t offset;
+      offset = random8(2);
+      for (uint8_t i = 0; i < 3; i++) {
+        leds[this->XY(i + offset, 7)] = this->color;
+      }
       break;
-    case 3:
-      leds[this->XY(0,7)] = this->color;
-      leds[this->XY(1,7)] = this->color;
-      leds[this->XY(2,7)] = this->color;
-      leds[this->XY(3,7)] = this->color;
+    default:
+      // move lowest row down and add new row on top
+      for (uint8_t row = 7-this->Index; row <= 7; row++) {
+        if (row < 0) {
+          continue;
+        }
+        for (uint8_t i = 0; i < 4; i++) {
+          // move lowest row down
+          leds[this->XY(i, row)] = leds[this->XY(i, row+1)];
+        }
+      }
 
-      leds[this->XY(0,6)] = this->color;
-      leds[this->XY(1,6)] = this->color;
-      leds[this->XY(2,6)] = this->color;
-      leds[this->XY(3,6)] = this->color;
-
-      leds[this->XY(0,5)] = this->color;
-      leds[this->XY(1,5)] = this->color;
-      leds[this->XY(2,5)] = this->color;
-      leds[this->XY(3,5)] = this->color;
-
-      leds[this->XY(0,4)] = this->color;
-      leds[this->XY(3,4)] = this->color;
-
-      leds[this->XY(0,3)] = this->color;
-      leds[this->XY(3,3)] = this->color;
-
-      leds[this->XY(0,2)] = this->color;
-      leds[this->XY(3,2)] = this->color;
-      break;
-    case 4:
-      // move center 4 pixels down one
-      leds[this->XY(1,2)] = leds[this->XY(1,4)];
-      leds[this->XY(2,2)] = leds[this->XY(2,4)];
-
-      leds[this->XY(0,7)] = this->color;
-      leds[this->XY(1,7)] = this->color;
-      leds[this->XY(2,7)] = this->color;
-      leds[this->XY(3,7)] = this->color;
-
-      leds[this->XY(0,6)] = this->color;
-      leds[this->XY(1,6)] = this->color;
-      leds[this->XY(2,6)] = this->color;
-      leds[this->XY(3,6)] = this->color;
-
-      leds[this->XY(0,5)] = this->color;
-      leds[this->XY(1,5)] = this->color;
-      leds[this->XY(2,5)] = this->color;
-      leds[this->XY(3,5)] = this->color;
-
-      leds[this->XY(0,4)] = this->color;
-      leds[this->XY(1,4)] = this->color;
-      leds[this->XY(2,4)] = this->color;
-      leds[this->XY(3,4)] = this->color;
-
-      leds[this->XY(0,3)] = this->color;
-      leds[this->XY(3,3)] = this->color;
-
-      leds[this->XY(0,2)] = this->color;
-      leds[this->XY(3,2)] = this->color;
-
-      leds[this->XY(0,1)] = this->color;
-      leds[this->XY(3,1)] = this->color;
-
-      leds[this->XY(0,0)] = this->color;
-      leds[this->XY(3,0)] = this->color;
-      break;
-    case 5:
-      // move down again
-      leds[this->XY(1,1)] = leds[this->XY(1,3)];
-      leds[this->XY(2,1)] = leds[this->XY(2,3)];
-
-      leds[this->XY(0,7)] = this->color;
-      leds[this->XY(1,7)] = this->color;
-      leds[this->XY(2,7)] = this->color;
-      leds[this->XY(3,7)] = this->color;
-
-      leds[this->XY(0,6)] = this->color;
-      leds[this->XY(1,6)] = this->color;
-      leds[this->XY(2,6)] = this->color;
-      leds[this->XY(3,6)] = this->color;
-
-      leds[this->XY(0,5)] = this->color;
-      leds[this->XY(1,5)] = this->color;
-      leds[this->XY(2,5)] = this->color;
-      leds[this->XY(3,5)] = this->color;
-
-      leds[this->XY(0,4)] = this->color;
-      leds[this->XY(1,4)] = this->color;
-      leds[this->XY(2,4)] = this->color;
-      leds[this->XY(3,4)] = this->color;
-
-      leds[this->XY(0,3)] = this->color;
-      leds[this->XY(1,3)] = this->color;
-      leds[this->XY(2,3)] = this->color;
-      leds[this->XY(3,3)] = this->color;
-
-      leds[this->XY(0,2)] = this->color;
-      leds[this->XY(3,2)] = this->color;
-
-      leds[this->XY(0,1)] = this->color;
-      leds[this->XY(3,1)] = this->color;
-
-      leds[this->XY(0,0)] = this->color;
-      leds[this->XY(3,0)] = this->color;
-      break;
-    case 6:
-      // move down again
-      leds[this->XY(1,0)] = leds[this->XY(1,2)];
-      leds[this->XY(2,0)] = leds[this->XY(2,2)];
-
-      leds[this->XY(0,7)] = this->color;
-      leds[this->XY(1,7)] = this->color;
-      leds[this->XY(2,7)] = this->color;
-      leds[this->XY(3,7)] = this->color;
-
-      leds[this->XY(0,6)] = this->color;
-      leds[this->XY(1,6)] = this->color;
-      leds[this->XY(2,6)] = this->color;
-      leds[this->XY(3,6)] = this->color;
-
-      leds[this->XY(0,5)] = this->color;
-      leds[this->XY(1,5)] = this->color;
-      leds[this->XY(2,5)] = this->color;
-      leds[this->XY(3,5)] = this->color;
-
-      leds[this->XY(0,4)] = this->color;
-      leds[this->XY(1,4)] = this->color;
-      leds[this->XY(2,4)] = this->color;
-      leds[this->XY(3,4)] = this->color;
-
-      leds[this->XY(0,3)] = this->color;
-      leds[this->XY(1,3)] = this->color;
-      leds[this->XY(2,3)] = this->color;
-      leds[this->XY(3,3)] = this->color;
-
-      leds[this->XY(0,2)] = this->color;
-      leds[this->XY(1,2)] = this->color;
-      leds[this->XY(2,2)] = this->color;
-      leds[this->XY(3,2)] = this->color;
-
-      leds[this->XY(0,1)] = this->color;
-      leds[this->XY(3,1)] = this->color;
-
-      leds[this->XY(0,0)] = this->color;
-      leds[this->XY(3,0)] = this->color;
-      break;
-    case 7:
-      fill_solid( leds, NUM_LEDS, this->color);
-      break;
+      for (uint8_t i = 0; i < 4; i++) {
+        // add new row on top
+        leds[this->XY(i, 7)] = this->color;
+      }
   }
 }
 

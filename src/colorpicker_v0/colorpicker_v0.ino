@@ -66,7 +66,7 @@ RGBSensor Sensor = RGBSensor(SENSOR_LED_PIN);
 // Timers and Counters
 #define SENSOR_UPDATE_MILIS 50
 #define RESET_TIMEOUT_MILIS 2000 // duration of reset timeout, in miliseconds
-#define CONFRIM_COUNTDOWN_MILIS 100 // duration of confirmation countdown timer, in miliseconds
+#define CONFRIM_COUNTDOWN_MILIS 150 // duration of confirmation countdown timer, in miliseconds
 #define CONFIRMATION_PRESSES 2 // number of button presses to confirm a color
 Metro resetTimer;
 Metro confirmDebounceTimer; // A debouncer for confirmation clicks.
@@ -168,7 +168,7 @@ void readyUpdate() {
 void previewStreamingEnter() {
   Serial << F("[state] previewStreaming") << endl;
   Sensor.enable();
-  Display.queueAnimation(SOLID);
+  Display.queueAnimation(CASCADE);
 }
 ///[previewStreaming state:update]
 // update desplayed color with scanned color until button is released
