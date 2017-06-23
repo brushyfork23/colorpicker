@@ -41,14 +41,6 @@ and use them in isColor() like this:
 |      (button released, then pressed) --------> (confirm counter is above 2) --
 |          v                                                
 ------- (increase confirm presses counter)                  
-
-
-  Sensor class:
-  sensor is initiallized with metronome millis, and in standby state (disabled)
-  sensor has state: reading/standby, set by sensor.enable()/disable()
-  when entering reading state, metronome is reset
-  while in reading state, metronome is checked and new reading is taken every x millis
-  On button press/release: call sensor.enable()/sensor.disable()
 */
 
 
@@ -62,94 +54,19 @@ and use them in isColor() like this:
 Bounce Button = Bounce();
 
 // TCS45725 RGB Sensor
-#include "Adafruit_TCS34725.h"
+#include <RGBSensor.h>
 #define SENSOR_LED_PIN 13
-// may want to replace this with interrupt logic instead of metronome?
-class RGBSensor {
-public:
-  // initialize sensor in satndby state, setting led pin and metronome interval
-  RGBSensor(int ledPin);
-  bool begin(unsigned long intervalMillis);
-  void enable();
-  void disable();
-  void update();
-  bool isColor(); // returns true if the last reading was interesting; not black or white
-  CRGB getColor();
-private:
-  Adafruit_TCS34725 tcs;
-  Metro readingTimer;
-  bool enabled;
-  int ledPin;
-  CRGB color; // last committed color code
-};
-RGBSensor::RGBSensor(int ledPin) {
-  this->enabled = false;
-  this->ledPin = ledPin;
-  pinMode(this->ledPin, OUTPUT);
-  this->tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_4X);
-}
-bool RGBSensor::begin(unsigned long intervalMillis) {
-  this->readingTimer.interval( intervalMillis );
-  return this->tcs.begin();
-}
-void RGBSensor::enable(){
-  this->enabled = true;
-  readingTimer.reset();
-  digitalWrite(this->ledPin, HIGH);
-}
-void RGBSensor::disable() {
-  this->enabled = false;
-  digitalWrite(this->ledPin, LOW);
-}
-void RGBSensor::update() {
-  if (this->enabled) {
-    if (this->readingTimer.check()) {
-      this->readingTimer.reset();
-      
-      uint16_t clear, red, green, blue;
-      // actually read the sensor
-      this->tcs.getRawData(&red, &green, &blue, &clear);
-
-      uint32_t sum = clear;
-      float r, g, b;
-      r = red; r /= sum;
-      g = green; g /= sum;
-      b = blue; b /= sum;
-      r *= 256; g *= 256; b *= 256;
-
-      this->color = CRGB(r, g, b);
-
-      //Serial << F("TCS read: R:\t") << this->color.r << F("\tG:\t") << this->color.g << F("\tB:\t") << this->color.b << endl;
-    }
-  }
-}
-bool RGBSensor::isColor() {
-  // TODO return if this->color != black or white (or anything returned when not actually touching a color)
-  if (this->enabled
-  //  && this->color > 0
-    && !( // rgb 175, 71, 55 was the average color I got for "white", or "no color", when testing this around my apartment.
-      abs(175 - this->color.r) < 20
-      && abs(71 - this->color.g) < 20
-      && abs(55 - this->color.b) < 20
-    )
-  ) {
-    return true;
-  }
-  return false;
-}
-CRGB RGBSensor::getColor() {
-  return this->color;
-}
 RGBSensor Sensor = RGBSensor(SENSOR_LED_PIN);
 
 
 // NeoPixel FeatherWing
 #include "PickerDisplay.h"
-#define BRIGHTNESS 84
+#define BRIGHTNESS 40
 
+// Timers and Counters
 #define SENSOR_UPDATE_MILIS 50
 #define RESET_TIMEOUT_MILIS 2000 // duration of reset timeout, in miliseconds
-#define CONFRIM_COUNTDOWN_MILIS 200 // duration of confirmation countdown timer, in miliseconds
+#define CONFRIM_COUNTDOWN_MILIS 100 // duration of confirmation countdown timer, in miliseconds
 #define CONFIRMATION_PRESSES 2 // number of button presses to confirm a color
 Metro resetTimer;
 Metro confirmDebounceTimer; // A debouncer for confirmation clicks.
@@ -171,7 +88,7 @@ void previewCountdownUpdate();
 State previewCountdown = State(previewCountdownEnter, previewCountdownUpdate, NULL);
 FSM picker = FSM(ready);
 
-CRGB color, previewColor;
+CHSV color, previewColor;
 uint8_t confirmationPresses;
 
 void setup() {
@@ -197,7 +114,7 @@ void setup() {
     Serial << F("Initialized TCS RGB sensor");
   } else {
     Serial.println("No TCS34725 found ... check your connections");
-    Display.setColor(CRGB(0));
+    Display.setColor(CHSV(0,0,0));
     Display.setAnimation(SOLID);
     while (1); // halt!
   }
@@ -214,7 +131,6 @@ void loop() {
   //Network.update();
   picker.update();
 }
-
 
 /*
   ALL the functions below are helper functions for the states of the program
@@ -239,7 +155,7 @@ void readyUpdate() {
 
   // has a new color been scanned?
   if ( Sensor.isColor() && Sensor.getColor() != color) {
-    Serial << F("detected color: ") << Sensor.getColor() << endl;
+    Serial << F("detected color: H:\t") << Sensor.getColor().h << F("\tS:\t") << Sensor.getColor().s << F("\tV:\t") << Sensor.getColor().v << endl;
     previewColor = Sensor.getColor();
     Display.setColor(previewColor);
     Display.setAnimation(PICKER_PREVIEW_INIT);
@@ -316,7 +232,8 @@ void previewCountdownUpdate() {
     // check time elapsed on the confirmation timer since the last button change
     if (confirmDebounceTimer.check()) {
       // Button has been held for long enough, go back to preview streaming
-      Serial << F("confirmation debounce timer expired") << endl;
+      Serial << F("confirmation debounce timer expired; go back to streaming") << endl;
+      Display.setAnimation(PICKER_PREVIEW_INIT);
       picker.transitionTo(previewStreaming);
     }
   } else {
@@ -329,7 +246,4 @@ void previewCountdownUpdate() {
     }
   }
 }
-
-
-
 

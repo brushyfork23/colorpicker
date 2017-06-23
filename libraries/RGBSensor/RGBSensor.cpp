@@ -1,29 +1,5 @@
-#include <Metro.h>
-#include <Streaming.h>
+#include "RGBSensor.h"
 
-#include <FastLED.h>
-
-// TCS45725 RGB Sensor
-#include "Adafruit_TCS34725.h"
-#define SENSOR_LED_PIN 13
-// may want to replace this with interrupt logic instead of metronome?
-class RGBSensor {
-public:
-  // initialize sensor in satndby state, setting led pin and metronome interval
-  RGBSensor(int ledPin);
-  bool begin(unsigned long intervalMillis);
-  void enable();
-  void disable();
-  void update();
-  bool isColor(); // returns true if the last reading was interesting; not black or white
-  CHSV getColor();
-private:
-  Adafruit_TCS34725 tcs;
-  Metro readingTimer;
-  bool enabled;
-  int ledPin;
-  CHSV color; // last committed color code
-};
 RGBSensor::RGBSensor(int ledPin) {
   this->enabled = false;
   this->ledPin = ledPin;
@@ -52,6 +28,14 @@ void RGBSensor::update() {
       // actually read the sensor
       this->tcs.getRawData(&red, &green, &blue, &clear);
 
+      /*
+        * This logic should be done with bitshifting, not floats.
+        * Figure out what's wrong with this mask opperation (again)
+        */
+      // this->color = (red << 8) & 0x00ff0000 |
+      //               (green ) & 0x0000ff00 |
+      //               (blue >> 8) & 0x000000ff;
+
       uint32_t sum = clear;
       float r, g, b;
       r = red; r /= sum;
@@ -62,44 +46,32 @@ void RGBSensor::update() {
       CRGB color = CRGB(r, g, b);
       this->color = rgb2hsv_approximate(color);
 
-      // Bump up the saturation to get a richer color from the reading
-      //this->color.s = 255; //qadd8(this->color.s, 40);
-
-      CRGB approximated;
-      approximated.setHSV(this->color.h, this->color.s, this->color.v);
+      this->color.s = qadd8(this->color.s, 80);
 
       // TSC Read
       //Serial << F("R:\t") << color.r << F("\tG:\t") << color.g << F("\tB:\t") << color.b << endl;
 
       // HSV approximation
-      Serial << F("H:\t") << this->color.h << F("\tS:\t") << this->color.s << F("\tV:\t") << this->color.v << F("\t");
+      //Serial << F("H:\t") << this->color.h << F("\tS:\t") << this->color.s << F("\tV:\t") << this->color.v << endl;
 
       // RGB approximation
-      Serial << F("R:\t") << color.r << F("\tG:\t") << color.g << F("\tB:\t") << color.b << endl;
+      //Serial << F("R:\t") << color.r << F("\tG:\t") << color.g << F("\tB:\t") << color.b << endl;
     }
   }
 }
 bool RGBSensor::isColor() {
   // TODO return if this->color != black or white (or anything returned when not actually touching a color)
-  if (this->enabled) {
+  if (this->enabled
+//    && !( // rgb 175, 71, 55 was the average color I got for "white", or "no color", when testing this around my apartment.
+//      abs(175 - this->color.r) < 20
+//      && abs(71 - this->color.g) < 20
+//      && abs(55 - this->color.b) < 20
+//    )
+  ) {
     return true;
   }
   return false;
 }
 CHSV RGBSensor::getColor() {
   return this->color;
-}
-RGBSensor Sensor = RGBSensor(SENSOR_LED_PIN);
-
-
-void setup() {
-  Serial.begin(9600);
-
-  // start RGB sensor
-  Sensor.begin(60);
-  Sensor.enable();
-}
-
-void loop() {
-  Sensor.update();
 }

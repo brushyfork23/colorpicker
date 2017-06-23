@@ -34,9 +34,9 @@ void PickerDisplay::startSeed(uint16_t seed) {
   random16_set_seed( seed );  // FastLED/lib8tion
   Serial << F("random seed=") << seed << endl;
 }
-void PickerDisplay::setColor(CRGB color) {
+void PickerDisplay::setColor(CHSV color) {
   this->color = color;
-  Serial << F("color set= R: ") << color.r << F("\tG: ") << color.g << F("\tB: ") << color.b << endl;
+  Serial << F("color set= H: ") << color.h << F("\tS: ") << color.s << F("\tV: ") << color.v << endl;
 }
 void PickerDisplay::queueAnimation(animation anim) {
   if ( this->TotalSteps == 0 ) {
@@ -181,15 +181,15 @@ void PickerDisplay::Solid() {
   this->setFPS();
   fill_solid( leds, NUM_LEDS, this->color);
   // save color to tmp so changes can be detected and we don't have to write every update loop iteration
-  this->tmpCRGB = this->color;
+  this->tmpCHSV = this->color;
   // TotalSteps must be set to 0 so that when queue() is called next it will instantly transition
   this->TotalSteps = 0;
 }
 
 void PickerDisplay::SolidUpdate() {
   // update color if it has changed
-  if (this->tmpCRGB != this->color) {
-    this->tmpCRGB = this->color;
+  if (this->tmpCHSV != this->color) {
+    this->tmpCHSV = this->color;
     fill_solid( leds, NUM_LEDS, this->color);
   }
 }
@@ -198,8 +198,8 @@ void PickerDisplay::PickerPulseSingle() {
   this->setFPS();
   fill_solid( leds, NUM_LEDS, 0);
   this->TotalSteps = 32;
-  this->actor1Index = 0;
-  this->actor2Index = 0;
+  this->actor1Index = -1;
+  this->actor2Index = -1;
 }
 
 // fade in a random pixel in and out.  When a pixel is partially faded out, start fading another random pixel in.
@@ -213,52 +213,50 @@ void PickerDisplay::PickerPulseSingleUpdate() {
     // select new actor
     uint16_t newAddr;
     do {
-      uint8_t x =  1 + random8(2);
-      uint8_t y =  3 + random8(2);
-      //Serial << F("[animPickerPulse] chosing new actor: x=") << x << F(" y=") << y << endl;
+      uint8_t x = random8(4);
+      uint8_t y = random8(8);
+      Serial << F("[animPickerPulse] chosing new actor: x=") << x << F(" y=") << y << endl;
       newAddr = this->XY(x, y);
     } while (this->actor1Index == newAddr);
     this->actor1Index = newAddr;
-    //Serial << F("[animPickerPulse] moved actor1 to actor2. Now actor1=") << this->actor1Index << F(" actor2=") << this->actor2Index << endl;
+    Serial << F("[animPickerPulse] moved actor1 to actor2. Now actor1=") << this->actor1Index << F(" actor2=") << this->actor2Index << endl;
   }
 
   // set tmp with a full-brightness target color
-  if (this->color == CRGB(0)) {
-    this->tmpCRGB.setHue(this->randCounter);
+  if (this->color.v == 0) {
+    this->tmpCHSV = CHSV(this->randCounter, 255, 255);
   } else {
-    this->tmpCRGB = this->color;
+    this->tmpCHSV = this->color;
   }
 
   // For first half of frames, fade old LED out
   // from the brightness it left off at at the end of the last cycle (2/3 max brightness)
   // to completely off by halfway through this cycle
   if (this->Index <= (this->TotalSteps / 2) ) {
-    CRGB tmp = this->tmpCRGB;
     // 2/3 max brightness - (2/3 max brightness * (index/(totalsteps/2)))
     //(2/3 * 256) - (2/3 * 256 * (Index/ (totalsteps / 2)))
-    uint8_t brightness = 170 - (170 * this->Index / (this->TotalSteps / 2) );
-    //Serial << F("[animPickerPUlse] fading 2 out.  Index=") << this->Index << F(" brightness=") << brightness << endl;
-    leds[this->actor2Index] = tmp.nscale8( brightness ); // 2/3 max brightness - (2/3 max brightness * (index/(totalsteps/2)))    (2/3 * 256) - (2/3 * 256 * (Index/ (totalsteps / 2)))
+    this->tmpCHSV.v = 170 - (170 * this->Index / (this->TotalSteps / 2) );
+    //Serial << F("[animPickerPUlse] fading 2 out.  Index=") << this->Index << F(" brightness=") << this->tmpCHSV.v << endl;
+    leds[this->actor2Index] = this->tmpCHSV;
   }
 
   // For first 3/4, fade new LED in
   // from completely off to completely on.
   if (this->Index < this->TotalSteps * 3 / 4) {
-    CRGB tmp = this->tmpCRGB;
-    uint8_t brightness = 255 * this->Index / (this->TotalSteps * 3 / 4);
-    //Serial << F("[animPickerPUlse] fading 1 in.  Index=") << this->Index << F(" brightness=") << brightness << endl;
-    leds[this->actor1Index] = tmp.nscale8_video( brightness ); // max brightness * (index / (.75 * totalsteps))
+    // max brightness * (index / (.75 * totalsteps))
+    this->tmpCHSV.v = 255 * this->Index / (this->TotalSteps * 3 / 4);
+    //Serial << F("[animPickerPUlse] fading 1 in.  Index=") << this->Index << F(" brightness=") << this->tmpCHSV.v << endl;
+    leds[this->actor1Index] = this->tmpCHSV;
   }
 
   // For last 1/4, fade new LED out
   // from completely on to 2/3 max brightness
   if (this->Index >= this->TotalSteps * 3 / 4) {
-    CRGB tmp = this->tmpCRGB;
     // current brightness = max brightness - (percent to fade * # steps taken into segment / segment length
     // max brightness - (brightness / 3 * ( (index - ((totalsteps * .75) / (totalsteps - .75 * totalsteps)) ) )
-    uint8_t brightness = 255 - 85 *  (this->Index - (this->TotalSteps * 3 / 4)) / ( this->TotalSteps - (this->TotalSteps * 3 / 4) );
-    //Serial << F("[animPickerPUlse] fading 1 out.  Index=") << this->Index << F(" brightness=") << brightness << endl;
-    leds[this->actor1Index] = tmp.nscale8( brightness ); 
+    this->tmpCHSV.v = 255 - 85 *  (this->Index - (this->TotalSteps * 3 / 4)) / ( this->TotalSteps - (this->TotalSteps * 3 / 4) );
+    //Serial << F("[animPickerPUlse] fading 1 out.  Index=") << this->Index << F(" brightness=") << this->tmpCHSV.v << endl;
+    leds[this->actor1Index] = this->tmpCHSV; 
   }
 }
 
@@ -463,8 +461,8 @@ void PickerDisplay::PickerPreviewInitUpdate()
 void PickerDisplay::PickerPulse() {
   //this->setFPS(16);
   //this->TotalSteps = 16;
-  //this->tmpCRGB = this->color;
-  //this->tmpCRGB.nscale8_video(16);
+  //this->tmpCHSV = this->color;
+  //this->tmpCHSV.nscale8_video(16);
   fill_solid( leds, NUM_LEDS, this->color);
 }
 
@@ -473,8 +471,8 @@ void PickerDisplay::PickerPulseUpdate() {
   //if (this->Index < 8) {
   //  nscale8_video(leds, NUM_LEDS, 32);
   // } else {
-  //   this->tmpCRGB += this->tmpCRGB.nscale8_video(32);
-  //   fill_solid( leds, NUM_LEDS, this->tmpCRGB);
+  //   this->tmpCHSV += this->tmpCHSV.nscale8_video(32);
+  //   fill_solid( leds, NUM_LEDS, this->tmpCHSV);
   // }
 }
 

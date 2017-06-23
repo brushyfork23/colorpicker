@@ -42,7 +42,7 @@ class PickerDisplay {
 	    void setBrightness(byte brightness=BRIGHTNESS);
 	    // set the random seed for animation
     	void startSeed(uint16_t seed = 1337);
-    	void setColor(CRGB color);
+    	void setColor(CHSV color);
     	// runs the animation; transitions to next 
     	void update();
     	// immediately change the current animation
@@ -79,13 +79,13 @@ class PickerDisplay {
 
     	uint16_t TotalSteps;  // total number of steps in the pattern
     	uint16_t Index;  // current step within the pattern
-    	CRGB color;
+    	CHSV color;
 
     	// animation helper vars
     	uint8_t actor1Index;
     	uint8_t actor2Index;
     	uint8_t randCounter;
-    	CRGB tmpCRGB;
+    	CHSV tmpCHSV;
     
 };
 
