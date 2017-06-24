@@ -58,7 +58,6 @@ Bounce Button = Bounce();
 #define SENSOR_LED_PIN 13
 RGBSensor Sensor = RGBSensor(SENSOR_LED_PIN);
 
-
 // NeoPixel FeatherWing
 #include "PickerDisplay.h"
 #define BRIGHTNESS 40
