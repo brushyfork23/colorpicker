@@ -158,7 +158,7 @@ void readyUpdate() {
     Serial << F("detected color: H:\t") << Sensor.getColor().h << F("\tS:\t") << Sensor.getColor().s << F("\tV:\t") << Sensor.getColor().v << endl;
     previewColor = Sensor.getColor();
     Display.setColor(previewColor);
-    Display.setAnimation(PICKER_PREVIEW_INIT);
+    //Display.setAnimation(PICKER_PREVIEW_INIT);
     picker.transitionTo(previewStreaming);
   }
 }
@@ -168,7 +168,7 @@ void readyUpdate() {
 void previewStreamingEnter() {
   Serial << F("[state] previewStreaming") << endl;
   Sensor.enable();
-  Display.queueAnimation(CASCADE);
+  Display.setAnimation(CASCADE);
 }
 ///[previewStreaming state:update]
 // update desplayed color with scanned color until button is released
@@ -233,7 +233,7 @@ void previewCountdownUpdate() {
     if (confirmDebounceTimer.check()) {
       // Button has been held for long enough, go back to preview streaming
       Serial << F("confirmation debounce timer expired; go back to streaming") << endl;
-      Display.setAnimation(PICKER_PREVIEW_INIT);
+      //Display.setAnimation(PICKER_PREVIEW_INIT);
       picker.transitionTo(previewStreaming);
     }
   } else {

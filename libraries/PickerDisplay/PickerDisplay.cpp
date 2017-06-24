@@ -158,8 +158,8 @@ void PickerDisplay::update()
     }
     this->randCounter++;
     this->Increment();
-    FastLED.show();
   }
+    FastLED.show();
 }
 
 // Increment the Index and reset at the end
@@ -244,11 +244,11 @@ void PickerDisplay::PickerPulseSingleUpdate() {
     do {
       uint8_t x = random8(4);
       uint8_t y = random8(8);
-      Serial << F("[animPickerPulse] chosing new actor: x=") << x << F(" y=") << y << endl;
+      //Serial << F("[animPickerPulse] chosing new actor: x=") << x << F(" y=") << y << endl;
       newAddr = this->XY(x, y);
     } while (this->actor1Index == newAddr);
     this->actor1Index = newAddr;
-    Serial << F("[animPickerPulse] moved actor1 to actor2. Now actor1=") << this->actor1Index << F(" actor2=") << this->actor2Index << endl;
+    //Serial << F("[animPickerPulse] moved actor1 to actor2. Now actor1=") << this->actor1Index << F(" actor2=") << this->actor2Index << endl;
   }
 
   // set tmp with a full-brightness target color

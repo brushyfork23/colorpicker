@@ -28,13 +28,14 @@ void RGBSensor::update() {
       // actually read the sensor
       this->tcs.getRawData(&red, &green, &blue, &clear);
 
-      /*
-        * This logic should be done with bitshifting, not floats.
-        * Figure out what's wrong with this mask opperation (again)
-        */
-      // this->color = (red << 8) & 0x00ff0000 |
-      //               (green ) & 0x0000ff00 |
-      //               (blue >> 8) & 0x000000ff;
+    /*
+     * TODO: fix this.  What's wrong with this conversion?
+      uint32_t colorcode =  ((uint32_t)red << 8) & 0x00ff0000 |
+                            (green ) & 0x0000ff00 |
+                            (blue >> 8) & 0x000000ff;
+
+      CRGB color = CRGB(colorcode);
+    */
 
       uint32_t sum = clear;
       float r, g, b;
@@ -42,11 +43,12 @@ void RGBSensor::update() {
       g = green; g /= sum;
       b = blue; b /= sum;
       r *= 256; g *= 256; b *= 256;
-
       CRGB color = CRGB(r, g, b);
+
       this->color = rgb2hsv_approximate(color);
 
-      this->color.s = qadd8(this->color.s, 80);
+      // Bump up the saturtion, giving us a richer color than we scanned.
+      this->color.s = qadd8(this->color.s, 100);
 
       // TSC Read
       //Serial << F("R:\t") << color.r << F("\tG:\t") << color.g << F("\tB:\t") << color.b << endl;
