@@ -8,6 +8,7 @@
 * **Metro** Metronome and timers https://github.com/thomasfredericks/Metro-Arduino-Wiring
 * **Streaming** Support for Serial << streaming operator http://arduiniana.org/libraries/streaming/
 
+
 ## Local
 * **PickerDisplay** Animations for Adafruit NeoPixel FeatherWing https://www.adafruit.com/product/2945
 * **RGBSensor** Wrapper library for Adafruit TCS34725 to implement FastLED CHSV
